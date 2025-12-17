@@ -297,19 +297,15 @@ async function generateImage(prompt) {
 // Show loading card for a scene
 function showLoadingCard(index) {
     const card = document.createElement('div');
-    card.className = 'story-card flex flex-col gap-2 w-[85vw] max-w-[400px]';
+    card.className = 'story-card w-[85vw] max-w-[400px]';
     card.dataset.index = index;
     card.innerHTML = `
-        <div class="card-content flex flex-col gap-2 w-full">
-            <div class="w-full aspect-square rounded-xl overflow-hidden bg-[#e5e5e5] relative shadow-[0_8px_30px_rgba(0,0,0,0.12)]" id="loading-image-${index}">
-                <div class="absolute inset-0 flex items-center justify-center">
-                    <p class="text-sm text-blue-400 font-medium">Generating Scene ${index + 1}...</p>
+        <div class="card-content w-full">
+            <div class="w-full aspect-square rounded-2xl overflow-hidden relative shadow-[0_8px_30px_rgba(0,0,0,0.12)]" id="loading-image-${index}" style="background: linear-gradient(135deg, #f0f0f0 0%, #e8e8e8 50%, #f0f0f0 100%);">
+                <div class="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                    <div class="w-10 h-10 rounded-full border-2 border-[#d4d4d4] border-t-[#737373] animate-spin"></div>
+                    <p class="text-sm text-[#737373] font-medium">Scene ${index + 1}</p>
                 </div>
-            </div>
-            <div class="flex flex-col gap-1">
-                <div class="h-3 w-16 bg-[#e5e5e5] rounded" id="loading-skeleton-1-${index}"></div>
-                <div class="h-4 w-full bg-[#e5e5e5] rounded" id="loading-skeleton-2-${index}"></div>
-                <div class="h-4 w-3/4 bg-[#e5e5e5] rounded" id="loading-skeleton-3-${index}"></div>
             </div>
         </div>
     `;
@@ -355,20 +351,6 @@ function showLoadingCard(index) {
                 card.style.transform = `translateX(calc(-50% + ${stackOffsetX}px)) translateY(${stackOffsetY}px) rotate(${rotation}deg)`;
             }
         }
-    });
-    
-    // Animate loading pulse
-    const loadingImage = document.getElementById(`loading-image-${index}`);
-    const skeleton1 = document.getElementById(`loading-skeleton-1-${index}`);
-    const skeleton2 = document.getElementById(`loading-skeleton-2-${index}`);
-    const skeleton3 = document.getElementById(`loading-skeleton-3-${index}`);
-    
-    animate([loadingImage, skeleton1, skeleton2, skeleton3], {
-        opacity: [0.5, 1, 0.5]
-    }, {
-        duration: 1.5,
-        repeat: Infinity,
-        ease: "easeInOut"
     });
     
     // Setup drag for this card
@@ -575,56 +557,34 @@ function setupCardDrag(card, index) {
 function dismissCard(currentIndex, nextIndex, direction) {
     if (nextIndex < 0 || nextIndex >= state.cards.length) return;
 
-    const { animate, spring } = Motion;
-
-    // Update current index first
+    // Update current index
     state.currentCardIndex = nextIndex;
 
-    // Animate all cards to their new positions
+    // Animate all cards to their new positions with CSS transitions
     state.cards.forEach((card, index) => {
         if (!card) return;
-
-        // Cancel any existing animation on this card
-        cancelCardAnimation(card);
 
         const isActive = index === state.currentCardIndex;
 
         // Calculate position relative to current card
         let positionFromTop;
         if (index === state.currentCardIndex) {
-            positionFromTop = 0; // On top
+            positionFromTop = 0;
         } else if (index < state.currentCardIndex) {
-            positionFromTop = state.currentCardIndex - index; // Behind
+            positionFromTop = state.currentCardIndex - index;
         } else {
-            positionFromTop = index - state.currentCardIndex; // Behind
+            positionFromTop = index - state.currentCardIndex;
         }
 
+        // Z-index: active on top, others behind
         const zIndex = isActive ? state.cards.length + 10 : state.cards.length - positionFromTop;
         card.style.zIndex = zIndex;
 
         // Calculate target position
         const offsetDirection = positionFromTop % 2 === 0 ? -1 : 1;
-        const stackOffsetY = positionFromTop * 14;
-        const stackOffsetX = positionFromTop * 8 * offsetDirection;
-        const rotation = positionFromTop * 2 * offsetDirection;
-
-        // Get current transform values by parsing
-        const currentTransform = card.style.transform || '';
-        let currentX = 0, currentY = 0, currentRotate = 0;
-
-        // Parse current transform
-        const xMatch = currentTransform.match(/translateX\([^)]*([-\d.]+)px/);
-        const yMatch = currentTransform.match(/translateY\(([-\d.]+)px/);
-        const rMatch = currentTransform.match(/rotate\(([-\d.]+)deg/);
-
-        if (xMatch) currentX = parseFloat(xMatch[1]) || 0;
-        if (yMatch) currentY = parseFloat(yMatch[1]) || 0;
-        if (rMatch) currentRotate = parseFloat(rMatch[1]) || 0;
-
-        // Target values - active card goes to 0,0, others stack behind
-        const targetX = isActive ? 0 : stackOffsetX;
-        const targetY = isActive ? 0 : stackOffsetY;
-        const targetRotate = isActive ? 0 : rotation;
+        const targetY = positionFromTop * 14;
+        const targetX = positionFromTop * 8 * offsetDirection;
+        const targetRotate = positionFromTop * 2 * offsetDirection;
 
         // Update classes
         if (isActive) {
@@ -633,133 +593,44 @@ function dismissCard(currentIndex, nextIndex, direction) {
             card.classList.remove('active');
         }
 
-        // Animate to new position with spring physics
-        const controls = animate(card, {
-            x: [currentX, targetX],
-            y: [currentY, targetY],
-            rotate: [currentRotate, targetRotate]
-        }, {
-            duration: 0.5,
-            ease: spring({ stiffness: 300, damping: 25 }),
-            onUpdate: (latest) => {
-                card.style.transform = `translateX(calc(-50% + ${latest.x}px)) translateY(${latest.y}px) rotate(${latest.rotate}deg)`;
-            },
-            onComplete: () => {
-                // Set final transform
-                if (isActive) {
-                    card.style.transform = `translateX(-50%) translateY(0px)`;
-                } else {
-                    card.style.transform = `translateX(calc(-50% + ${targetX}px)) translateY(${targetY}px) rotate(${targetRotate}deg)`;
-                }
-            }
-        });
+        // Add transition for smooth animation
+        card.style.transition = 'transform 0.3s ease-out';
 
-        trackCardAnimation(card, controls);
+        // Set final transform
+        if (isActive) {
+            card.style.transform = `translateX(-50%) translateY(0px)`;
+        } else {
+            card.style.transform = `translateX(calc(-50% + ${targetX}px)) translateY(${targetY}px) rotate(${targetRotate}deg)`;
+        }
     });
+
+    // Remove transitions after animation completes
+    setTimeout(() => {
+        state.cards.forEach((card) => {
+            if (card) card.style.transition = '';
+        });
+    }, 300);
 }
 
 // Flip to a specific card (programmatic navigation)
 function flipToCard(index) {
     if (index < 0 || index >= state.cards.length || index === state.currentCardIndex) return;
 
-    const { animate, spring } = Motion;
-    const oldIndex = state.currentCardIndex;
-
-    // Update index immediately
+    // Update index and reposition all cards
     state.currentCardIndex = index;
-
-    // Animate old card to back - calculate position relative to NEW current card
-    const oldCard = state.cards[oldIndex];
-    if (oldCard) {
-        cancelCardAnimation(oldCard);
-
-        const oldPositionFromTop = Math.abs(oldIndex - state.currentCardIndex);
-        const oldOffsetDirection = oldPositionFromTop % 2 === 0 ? -1 : 1;
-        const oldStackOffsetY = oldPositionFromTop * 14;
-        const oldStackOffsetX = oldPositionFromTop * 8 * oldOffsetDirection;
-        const oldRotation = oldPositionFromTop * 2 * oldOffsetDirection;
-
-        oldCard.classList.remove('active');
-        oldCard.style.zIndex = state.cards.length - oldPositionFromTop;
-
-        const oldControls = animate(oldCard, {
-            x: [0, oldStackOffsetX],
-            y: [0, oldStackOffsetY],
-            rotate: [0, oldRotation]
-        }, {
-            duration: 0.4,
-            ease: spring({ stiffness: 300, damping: 25 }),
-            onUpdate: (latest) => {
-                oldCard.style.transform = `translateX(calc(-50% + ${latest.x}px)) translateY(${latest.y}px) rotate(${latest.rotate}deg)`;
-            },
-            onComplete: () => {
-                oldCard.style.transform = `translateX(calc(-50% + ${oldStackOffsetX}px)) translateY(${oldStackOffsetY}px) rotate(${oldRotation}deg)`;
-            }
-        });
-
-        trackCardAnimation(oldCard, oldControls);
-    }
-
-    // Bring new card to front - animates to 0,0
-    const newCard = state.cards[index];
-    if (newCard) {
-        cancelCardAnimation(newCard);
-
-        // Get current position of new card
-        const currentTransform = newCard.style.transform || '';
-        let currentX = 0, currentY = 0, currentRotate = 0;
-        const xMatch = currentTransform.match(/translateX\([^)]*([-\d.]+)px/);
-        const yMatch = currentTransform.match(/translateY\(([-\d.]+)px/);
-        const rMatch = currentTransform.match(/rotate\(([-\d.]+)deg/);
-        if (xMatch) currentX = parseFloat(xMatch[1]) || 0;
-        if (yMatch) currentY = parseFloat(yMatch[1]) || 0;
-        if (rMatch) currentRotate = parseFloat(rMatch[1]) || 0;
-
-        newCard.classList.add('active');
-        newCard.style.zIndex = state.cards.length + 10;
-
-        const newControls = animate(newCard, {
-            x: [currentX, 0],
-            y: [currentY, 0],
-            rotate: [currentRotate, 0]
-        }, {
-            duration: 0.5,
-            ease: spring({ stiffness: 300, damping: 25 }),
-            onUpdate: (latest) => {
-                newCard.style.transform = `translateX(calc(-50% + ${latest.x}px)) translateY(${latest.y}px) rotate(${latest.rotate}deg)`;
-            },
-            onComplete: () => {
-                newCard.style.transform = `translateX(-50%) translateY(0px)`;
-            }
-        });
-
-        trackCardAnimation(newCard, newControls);
-    }
+    updateCardStackPosition();
 }
 
-// Reset card position (snap back if not dismissed) - uses spring for natural feel
+// Reset card position (snap back if not dismissed) - use CSS transition
 function resetCardPosition(card, index, currentOffsetX) {
-    const { animate, spring } = Motion;
+    // Add transition for smooth snap back
+    card.style.transition = 'transform 0.3s ease-out';
+    card.style.transform = `translateX(-50%) translateY(0px)`;
 
-    // Cancel any existing animation on this card
-    cancelCardAnimation(card);
-
-    // Active card is always at Y=0
-    const controls = animate(card, {
-        x: [currentOffsetX, 0],
-        rotate: [currentOffsetX * 0.15, 0]
-    }, {
-        duration: 0.5,
-        ease: spring({ stiffness: 300, damping: 25 }),
-        onUpdate: (latest) => {
-            card.style.transform = `translateX(calc(-50% + ${latest.x}px)) translateY(0px) rotate(${latest.rotate}deg)`;
-        },
-        onComplete: () => {
-            card.style.transform = `translateX(-50%) translateY(0px)`;
-        }
-    });
-
-    trackCardAnimation(card, controls);
+    // Remove transition after animation completes
+    setTimeout(() => {
+        card.style.transition = '';
+    }, 300);
 }
 
 // Dots removed - navigation is swipe-only
