@@ -98,28 +98,41 @@ async function handleGenerate() {
     const scenePrompts = generateScenePrompts(userPrompt);
     const sceneCaptions = generateSceneCaptions(userPrompt);
 
-    // Generate images sequentially
+    // Show all loading cards at once
+    for (let i = 0; i < 4; i++) {
+        showLoadingCard(i);
+    }
+    
+    // Center on first card
+    state.currentCardIndex = 0;
+    requestAnimationFrame(() => {
+        scrollToCard(0);
+        updateDots();
+    });
+    
+    // Generate all images in parallel
     try {
-        for (let i = 0; i < 4; i++) {
-            state.currentScene = i;
-            state.currentCardIndex = i;
-            
-            // Show loading card for current scene
-            showLoadingCard(i);
-            
-            // Scroll to current card
-            scrollToCard(i);
-            updateDots();
-            
-            const imageData = await generateImage(scenePrompts[i]);
+        const imagePromises = scenePrompts.map((prompt, index) => 
+            generateImage(prompt).then(imageData => ({
+                index,
+                imageData,
+                caption: sceneCaptions[index]
+            }))
+        );
+        
+        // Wait for all images to complete
+        const results = await Promise.all(imagePromises);
+        
+        // Update each card as it completes (they may complete in any order)
+        results.forEach(({ index, imageData, caption }) => {
             if (imageData) {
-                state.images[i] = imageData;
-                state.captions[i] = sceneCaptions[i];
-                updateSceneCard(i, imageData, sceneCaptions[i]);
+                state.images[index] = imageData;
+                state.captions[index] = caption;
+                updateSceneCard(index, imageData, caption);
             } else {
-                throw new Error(`Failed to generate scene ${i + 1}`);
+                throw new Error(`Failed to generate scene ${index + 1}`);
             }
-        }
+        });
         
         // All scenes complete - show "Create New Story" button with animation
         const { animate } = Motion;
@@ -137,10 +150,6 @@ async function handleGenerate() {
         });
     } catch (error) {
         showError(error.message || 'Failed to generate story. Please try again.');
-        // Remove loading card if error occurred
-        if (state.cards[state.currentScene]) {
-            state.cards[state.currentScene].remove();
-        }
         // Show input section again on error
         animateSectionTransition(outputSection, inputSection, 'out', 'in');
     } finally {
