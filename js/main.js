@@ -2,7 +2,7 @@
 
 // Main entry point - initialization and event handling
 
-import { CONFIG, SAMPLE_STORIES, SCENE_COUNT } from './config.js';
+import { CONFIG, SAMPLE_STORIES, SCENE_COUNT, TEST_MODE, TEST_IMAGES, TEST_CAPTIONS } from './config.js';
 import {
     state,
     setApiKey,
@@ -20,9 +20,11 @@ import { generateScenePrompts, generateSceneCaptions, generateImage } from './ap
 import { animateSectionTransition, setupButtonAnimations, animateEntrance } from './animations.js';
 import {
     setCardStackElement,
+    setCaptionElements,
     showLoadingCard,
     updateSceneCard,
     updateCardStackPosition,
+    updateCaption,
     dismissCard,
     resetCardPosition,
     clearCardStack
@@ -39,6 +41,12 @@ let outputSection;
 let cardStack;
 let createNewBtn;
 let sampleStoriesContainer;
+let sceneIndicator;
+let sceneCaption;
+let settingsBtn;
+let settingsModal;
+let settingsOverlay;
+let closeSettingsBtn;
 
 // Initialize DOM references
 function initDomReferences() {
@@ -51,9 +59,18 @@ function initDomReferences() {
     cardStack = document.getElementById('card-stack');
     createNewBtn = document.getElementById('create-new-btn');
     sampleStoriesContainer = document.getElementById('sample-stories');
+    sceneIndicator = document.getElementById('scene-indicator');
+    sceneCaption = document.getElementById('scene-caption');
+    settingsBtn = document.getElementById('settings-btn');
+    settingsModal = document.getElementById('settings-modal');
+    settingsOverlay = document.getElementById('settings-overlay');
+    closeSettingsBtn = document.getElementById('close-settings-btn');
 
     // Set card stack element for cards module
     setCardStackElement(cardStack);
+
+    // Set caption elements for cards module
+    setCaptionElements(sceneIndicator, sceneCaption);
 
     // Set drag callbacks to avoid circular dependency
     setDragCallbacks(dismissCard, resetCardPosition);
@@ -73,10 +90,15 @@ function init() {
     generateBtn.addEventListener('click', handleGenerate);
     createNewBtn.addEventListener('click', handleCreateNew);
     storyPromptInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && e.ctrlKey) {
+        if (e.key === 'Enter') {
             handleGenerate();
         }
     });
+
+    // Settings modal event listeners
+    settingsBtn.addEventListener('click', openSettings);
+    closeSettingsBtn.addEventListener('click', closeSettings);
+    settingsOverlay.addEventListener('click', closeSettings);
 
     // Setup sample story pills
     setupSampleStories();
@@ -85,12 +107,23 @@ function init() {
     setupButtonAnimations(generateBtn, createNewBtn);
 }
 
+// Open settings modal
+function openSettings() {
+    settingsModal.classList.remove('hidden');
+    apiKeyInput.focus();
+}
+
+// Close settings modal
+function closeSettings() {
+    settingsModal.classList.add('hidden');
+}
+
 // Setup sample story pills
 function setupSampleStories() {
     SAMPLE_STORIES.forEach(story => {
         const pill = document.createElement('button');
         pill.type = 'button';
-        pill.className = 'px-3 py-1.5 text-xs font-medium text-[#525252] bg-[#f5f5f5] hover:bg-[#e5e5e5] rounded-full transition-colors cursor-pointer';
+        pill.className = 'px-4 py-2 text-sm font-medium text-[#525252] bg-white border border-[#e5e5e5] hover:border-[#a3a3a3] hover:text-[#171717] rounded-full transition-colors cursor-pointer';
         pill.textContent = story.label;
         pill.addEventListener('click', () => {
             storyPromptInput.value = story.prompt;
@@ -111,8 +144,8 @@ async function handleGenerate() {
     // Clear previous error
     clearError();
 
-    // Validate inputs
-    if (!state.apiKey) {
+    // In test mode, skip API key validation
+    if (!TEST_MODE && !state.apiKey) {
         showError('Please enter your OpenAI API key');
         return;
     }
@@ -146,7 +179,29 @@ async function handleGenerate() {
     setCurrentCardIndex(0);
     updateCardStackPosition();
 
-    // Generate all images in parallel
+    // TEST MODE: Use hardcoded images instead of API
+    if (TEST_MODE) {
+        // Simulate a small delay for realistic feel
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Update each card with test images
+        for (let i = 0; i < SCENE_COUNT; i++) {
+            setImage(i, TEST_IMAGES[i]);
+            setCaption(i, TEST_CAPTIONS[i]);
+            updateSceneCard(i, TEST_IMAGES[i], TEST_CAPTIONS[i]);
+        }
+
+        // Update caption for first card
+        updateCaption();
+
+        // Show "Create New Story" button
+        animateEntrance(createNewBtn);
+        setGenerating(false);
+        setCurrentScene(0);
+        return;
+    }
+
+    // PRODUCTION MODE: Generate all images in parallel via API
     try {
         const imagePromises = scenePrompts.map((prompt, index) =>
             generateImage(prompt).then(imageData => ({
@@ -169,6 +224,9 @@ async function handleGenerate() {
                 throw new Error(`Failed to generate scene ${index + 1}`);
             }
         });
+
+        // Update caption for first card
+        updateCaption();
 
         // All scenes complete - show "Create New Story" button with animation
         animateEntrance(createNewBtn);

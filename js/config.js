@@ -1,5 +1,23 @@
 // Configuration and constants
 
+// Test mode - set to true to use hardcoded images for UI/UX iteration
+export const TEST_MODE = true;
+
+// Test images (Unsplash landscape photos)
+export const TEST_IMAGES = [
+    'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=800&fit=crop',
+    'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800&h=800&fit=crop',
+    'https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?w=800&h=800&fit=crop',
+    'https://images.unsplash.com/photo-1433086966358-54859d0ed716?w=800&h=800&fit=crop'
+];
+
+export const TEST_CAPTIONS = [
+    'Our hero sets out on an adventure. This opening scene introduces the setting and characters, establishing the world where our story unfolds.',
+    'Challenges emerge along the way. Tension builds and propels the narrative forward as obstacles appear.',
+    'The moment of truth arrives. The story reaches its peak moment of tension, where the central conflict comes to a dramatic head.',
+    'Peace and understanding prevail. The story concludes, bringing closure and showing how the journey transforms the characters and their world.'
+];
+
 export const CONFIG = {
     // Drag/swipe thresholds
     SWIPE_THRESHOLD: 80,

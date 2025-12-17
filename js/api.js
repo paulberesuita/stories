@@ -15,13 +15,13 @@ export function generateScenePrompts(userPrompt) {
 
 // Generate scene captions from user prompt
 export function generateSceneCaptions(userPrompt) {
-    const coreIdea = userPrompt.toLowerCase();
+    const coreIdea = userPrompt;
 
     return [
-        `The beginning: ${coreIdea}. This opening scene introduces the setting and characters, establishing the world where our story unfolds.`,
-        `Rising action: ${coreIdea}. A challenge emerges, creating tension and propelling the narrative forward as obstacles appear.`,
-        `Climax: ${coreIdea}. The story reaches its peak moment of tension, where the central conflict comes to a dramatic head.`,
-        `Resolution: ${coreIdea}. The story concludes, bringing closure and showing how the journey transforms the characters and their world.`
+        `${coreIdea}. This opening scene introduces the setting and characters, establishing the world where our story unfolds.`,
+        `${coreIdea}. A challenge emerges, creating tension and propelling the narrative forward as obstacles appear.`,
+        `${coreIdea}. The story reaches its peak moment of tension, where the central conflict comes to a dramatic head.`,
+        `${coreIdea}. The story concludes, bringing closure and showing how the journey transforms the characters and their world.`
     ];
 }
 
