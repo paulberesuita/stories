@@ -56,23 +56,20 @@
         .story-card.dragging {
             transition: none;
         }
-        /* Hide content on non-active cards - only show edges */
+        /* Show images on all cards, but make non-active cards semi-transparent */
         .story-card:not(.active) .card-content {
-            opacity: 0;
+            opacity: 0.4;
             pointer-events: none;
-            visibility: hidden;
         }
         .story-card.active {
             overflow: visible;
         }
         .story-card.active .card-content {
             opacity: 1;
-            visibility: visible;
         }
-        /* Cards behind show only their edges (white background with rounded corners) */
+        /* Cards behind show their images with reduced opacity */
         .story-card:not(.active) {
             background: white;
-            border: 1px solid rgba(0, 0, 0, 0.05);
         }
         /* Mobile touch improvements */
         @media (hover: none) and (pointer: coarse) {
@@ -127,10 +124,6 @@
                     <div id="card-stack" class="relative w-full max-w-[400px] mx-auto" style="height: 500px;">
                         <!-- Cards will be dynamically created here and stacked -->
                     </div>
-                </div>
-                <!-- Navigation dots -->
-                <div id="carousel-dots" class="flex justify-center gap-2 mt-6">
-                    <!-- Dots will be dynamically created here -->
                 </div>
                 <button id="create-new-btn" class="mt-6 mx-auto px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium font-sans cursor-pointer transition-colors hidden">
                     Create New Story
