@@ -550,17 +550,23 @@ function setupCardDrag(card, index) {
     
     // Touch events
     card.addEventListener('touchstart', (e) => {
+        if (!e.touches || !e.touches[0]) return;
         const touch = e.touches[0];
         handleStart(touch.clientX, touch.clientY);
     }, { passive: true });
-    
-    document.addEventListener('touchmove', (e) => {
+
+    card.addEventListener('touchmove', (e) => {
         if (!isDragging) return;
+        if (!e.touches || !e.touches[0]) return;
         const touch = e.touches[0];
         handleMove(touch.clientX, touch.clientY);
     }, { passive: true });
-    
-    document.addEventListener('touchend', () => {
+
+    card.addEventListener('touchend', () => {
+        handleEnd();
+    }, { passive: true });
+
+    card.addEventListener('touchcancel', () => {
         handleEnd();
     }, { passive: true });
 }
