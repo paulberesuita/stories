@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Story Generator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/motion@12.23.26/dist/motion.js"></script>
     <script>
@@ -43,12 +46,33 @@
             user-select: none;
             transition: transform 0.3s ease, z-index 0s;
             will-change: transform;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
         }
         .story-card:active {
             cursor: grabbing;
         }
         .story-card.dragging {
             transition: none;
+        }
+        /* Hide content on non-active cards - only show edges */
+        .story-card:not(.active) .card-content {
+            opacity: 0;
+            pointer-events: none;
+            visibility: hidden;
+        }
+        .story-card.active {
+            overflow: visible;
+        }
+        .story-card.active .card-content {
+            opacity: 1;
+            visibility: visible;
+        }
+        /* Cards behind show only their edges (white background with rounded corners) */
+        .story-card:not(.active) {
+            background: white;
+            border: 1px solid rgba(0, 0, 0, 0.05);
         }
         /* Mobile touch improvements */
         @media (hover: none) and (pointer: coarse) {
@@ -58,15 +82,18 @@
         }
     </style>
 </head>
-<body class="bg-[#fafafa] text-[#171717] font-sans leading-relaxed px-4 min-h-screen flex items-center justify-center">
-    <div class="max-w-[900px] w-full">
+<body class="bg-[#fafafa] text-[#171717] font-sans leading-relaxed px-4 min-h-screen flex items-center justify-center relative">
+    <!-- Subtle background pattern -->
+    <div class="fixed inset-0 pointer-events-none opacity-[0.03]" style="background-image: radial-gradient(circle, #000 1px, transparent 1px); background-size: 24px 24px;"></div>
+    
+    <div class="max-w-[900px] w-full relative z-10">
         <header class="text-center mb-12">
-            <h1 class="text-3xl md:text-[32px] font-semibold mb-2 text-[#171717]">Story Generator</h1>
+            <h1 class="text-4xl md:text-5xl font-bold mb-2 text-[#171717]" style="font-family: 'Playfair Display', serif;">Story Generator</h1>
             <p class="text-base text-[#737373]">Generate a 4-panel visual story from your idea</p>
         </header>
 
         <main class="flex flex-col gap-12">
-            <section id="input-section" class="flex flex-col gap-5 transition-opacity duration-300">
+            <section id="input-section" class="flex flex-col gap-5 transition-opacity duration-300 max-w-[500px] mx-auto w-full">
                 <div class="flex flex-col gap-2">
                     <label for="api-key" class="text-sm font-medium text-[#171717]">OpenAI API Key</label>
                     <input 

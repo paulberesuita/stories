@@ -102,7 +102,9 @@ async function handleGenerate() {
         showLoadingCard(i);
     }
     
-    // Update dots
+    // Set first card as active initially
+    state.currentCardIndex = 0;
+    updateCardStackPosition();
     updateDots();
     
     // Generate all images in parallel
@@ -261,15 +263,17 @@ function showLoadingCard(index) {
     card.className = 'story-card flex flex-col gap-2 w-[85vw] max-w-[400px]';
     card.dataset.index = index;
     card.innerHTML = `
-        <div class="w-full aspect-square rounded-xl overflow-hidden bg-[#e5e5e5] relative shadow-lg" id="loading-image-${index}">
-            <div class="absolute inset-0 flex items-center justify-center">
-                <p class="text-sm text-blue-400 font-medium">Generating Scene ${index + 1}...</p>
+        <div class="card-content flex flex-col gap-2 w-full">
+            <div class="w-full aspect-square rounded-xl overflow-hidden bg-[#e5e5e5] relative shadow-lg" id="loading-image-${index}">
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <p class="text-sm text-blue-400 font-medium">Generating Scene ${index + 1}...</p>
+                </div>
             </div>
-        </div>
-        <div class="flex flex-col gap-1">
-            <div class="h-3 w-16 bg-[#e5e5e5] rounded" id="loading-skeleton-1-${index}"></div>
-            <div class="h-4 w-full bg-[#e5e5e5] rounded" id="loading-skeleton-2-${index}"></div>
-            <div class="h-4 w-3/4 bg-[#e5e5e5] rounded" id="loading-skeleton-3-${index}"></div>
+            <div class="flex flex-col gap-1">
+                <div class="h-3 w-16 bg-[#e5e5e5] rounded" id="loading-skeleton-1-${index}"></div>
+                <div class="h-4 w-full bg-[#e5e5e5] rounded" id="loading-skeleton-2-${index}"></div>
+                <div class="h-4 w-3/4 bg-[#e5e5e5] rounded" id="loading-skeleton-3-${index}"></div>
+            </div>
         </div>
     `;
     cardStack.appendChild(card);
@@ -312,6 +316,9 @@ function updateSceneCard(index, imageData, caption) {
     if (!state.cards[index]) return;
     
     const card = state.cards[index];
+    const cardContent = document.createElement('div');
+    cardContent.className = 'card-content flex flex-col gap-2 w-full';
+    
     const imageContainer = document.createElement('div');
     imageContainer.className = 'w-full aspect-square rounded-xl overflow-hidden bg-[#e5e5e5] shadow-lg';
     const img = document.createElement('img');
@@ -321,17 +328,18 @@ function updateSceneCard(index, imageData, caption) {
     img.style.opacity = '0';
     
     imageContainer.appendChild(img);
-    
-    card.innerHTML = '';
-    card.appendChild(imageContainer);
+    cardContent.appendChild(imageContainer);
     
     const captionDiv = document.createElement('div');
-    captionDiv.className = 'flex flex-col gap-1';
+    captionDiv.className = 'flex flex-col gap-1 px-2 pb-2';
     captionDiv.innerHTML = `
         <div class="text-xs font-medium text-[#737373] uppercase tracking-wide">SCENE ${index + 1}</div>
         <p class="text-sm text-[#171717] leading-relaxed">${caption}</p>
     `;
-    card.appendChild(captionDiv);
+    cardContent.appendChild(captionDiv);
+    
+    card.innerHTML = '';
+    card.appendChild(cardContent);
     
     // Ensure card maintains its classes
     card.className = 'story-card flex flex-col gap-2 w-[85vw] max-w-[400px]';
@@ -361,27 +369,26 @@ function updateCardStackPosition() {
     state.cards.forEach((card, index) => {
         if (!card) return;
         
-        // Calculate z-index (top card has highest z-index)
-        // Current card should be on top
-        let zIndex;
-        if (index === state.currentCardIndex) {
-            zIndex = state.cards.length + 1; // Top card
-        } else if (index < state.currentCardIndex) {
-            zIndex = state.cards.length - index; // Cards behind current
-        } else {
-            zIndex = state.cards.length - index; // Cards in front of current
-        }
+        // Calculate z-index - cards are ordered by index, with current on top
+        // Cards are stacked: newest (index 3) on top, oldest (index 0) on bottom
+        // But we want currentCardIndex to be on top
+        const isActive = index === state.currentCardIndex;
+        const zIndex = isActive ? state.cards.length + 10 : state.cards.length - index;
         
-        const stackOffset = (state.cards.length - 1 - index) * 8; // 8px offset per card
+        // Stack offset: cards behind are offset down and slightly to the side
+        const stackOffsetY = (state.cards.length - 1 - index) * 12; // 12px vertical offset
+        const stackOffsetX = (state.cards.length - 1 - index) * 4; // 4px horizontal offset
         
         card.style.zIndex = zIndex;
         card.style.display = 'block';
-        card.style.transform = `translateX(-50%) translateY(${stackOffset}px)`;
+        card.style.transform = `translateX(calc(-50% + ${stackOffsetX}px)) translateY(${stackOffsetY}px)`;
         
-        // Add shadow to top card
-        if (index === state.currentCardIndex) {
+        // Add/remove active class to control content visibility
+        if (isActive) {
+            card.classList.add('active');
             card.style.boxShadow = '0 10px 30px rgba(0, 0, 0, 0.2)';
         } else {
+            card.classList.remove('active');
             card.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
         }
     });
@@ -419,9 +426,11 @@ function setupCardDrag(card, index) {
         dragOffsetX = currentX;
         dragOffsetY = 0;
         
-        // Apply transform
-        const stackOffset = (state.cards.length - 1 - index) * 8;
-        card.style.transform = `translateX(calc(-50% + ${dragOffsetX}px)) translateY(${stackOffset}px) rotateY(${dragOffsetX * 0.1}deg)`;
+        // Apply transform with stack offset
+        const stackOffsetY = (state.cards.length - 1 - index) * 12;
+        const stackOffsetX = (state.cards.length - 1 - index) * 4;
+        const rotation = dragOffsetX * 0.1;
+        card.style.transform = `translateX(calc(-50% + ${stackOffsetX}px + ${dragOffsetX}px)) translateY(${stackOffsetY}px) rotate(${rotation}deg)`;
     };
     
     const handleEnd = () => {
@@ -429,17 +438,17 @@ function setupCardDrag(card, index) {
         isDragging = false;
         card.classList.remove('dragging');
         
-        const threshold = 100; // Minimum drag distance to flip card
+        const threshold = 80; // Minimum drag distance to dismiss card
         const velocity = Math.abs(currentX);
         
-        if (Math.abs(dragOffsetX) > threshold || velocity > 5) {
-            // Flip to next/previous card
+        if (Math.abs(dragOffsetX) > threshold || velocity > 3) {
+            // Dismiss card and reveal next/previous
             if (dragOffsetX < 0 && state.currentCardIndex < state.cards.length - 1) {
-                // Swiped left - next card
-                flipToCard(state.currentCardIndex + 1);
+                // Swiped left - dismiss current, show next card
+                dismissCard(state.currentCardIndex, state.currentCardIndex + 1, -1);
             } else if (dragOffsetX > 0 && state.currentCardIndex > 0) {
-                // Swiped right - previous card
-                flipToCard(state.currentCardIndex - 1);
+                // Swiped right - dismiss current, show previous card
+                dismissCard(state.currentCardIndex, state.currentCardIndex - 1, 1);
             } else {
                 // Snap back
                 resetCardPosition(card, index, dragOffsetX);
@@ -481,13 +490,69 @@ function setupCardDrag(card, index) {
     }, { passive: true });
 }
 
-// Flip to a specific card
+// Dismiss current card and reveal next/previous (swipe to dismiss)
+function dismissCard(currentIndex, nextIndex, direction) {
+    if (nextIndex < 0 || nextIndex >= state.cards.length) return;
+    
+    const { animate } = Motion;
+    const currentCard = state.cards[currentIndex];
+    const nextCard = state.cards[nextIndex];
+    
+    if (!currentCard || !nextCard) return;
+    
+    // Animate current card off screen (dismiss)
+    const dismissDistance = direction * 600;
+    animate(currentCard, {
+        x: [0, dismissDistance],
+        opacity: [1, 0],
+        rotate: [0, direction * 20],
+        scale: [1, 0.8]
+    }, {
+        duration: 0.4,
+        ease: "easeIn",
+        onUpdate: (latest) => {
+            const stackOffsetY = (state.cards.length - 1 - currentIndex) * 12;
+            const stackOffsetX = (state.cards.length - 1 - currentIndex) * 4;
+            currentCard.style.transform = `translateX(calc(-50% + ${stackOffsetX}px + ${latest.x}px)) translateY(${stackOffsetY}px) rotate(${latest.rotate}deg) scale(${latest.scale})`;
+        },
+        onComplete: () => {
+            // Update current index
+            state.currentCardIndex = nextIndex;
+            updateCardStackPosition();
+        }
+    });
+    
+    // Bring next card to front with animation
+    const newStackOffsetY = (state.cards.length - 1 - nextIndex) * 12;
+    const newStackOffsetX = (state.cards.length - 1 - nextIndex) * 4;
+    
+    // Set initial position
+    nextCard.style.opacity = '1';
+    nextCard.style.transform = `translateX(calc(-50% + ${newStackOffsetX}px)) translateY(${newStackOffsetY}px) scale(0.95)`;
+    nextCard.classList.add('active');
+    
+    requestAnimationFrame(() => {
+        animate(nextCard, {
+            scale: [0.95, 1]
+        }, {
+            duration: 0.3,
+            ease: "easeOut",
+            onUpdate: (latest) => {
+                nextCard.style.transform = `translateX(calc(-50% + ${newStackOffsetX}px)) translateY(${newStackOffsetY}px) scale(${latest.scale})`;
+            }
+        });
+    });
+    
+    updateDots();
+}
+
+// Flip to a specific card (for dot navigation)
 function flipToCard(index) {
     if (index < 0 || index >= state.cards.length || index === state.currentCardIndex) return;
     
     const { animate } = Motion;
     const oldIndex = state.currentCardIndex;
-    const direction = index > oldIndex ? 1 : -1; // 1 = next, -1 = previous
+    const direction = index > oldIndex ? 1 : -1;
     
     // Update index immediately
     state.currentCardIndex = index;
@@ -495,16 +560,17 @@ function flipToCard(index) {
     // Animate old card to back
     const oldCard = state.cards[oldIndex];
     if (oldCard) {
-        const oldStackOffset = (state.cards.length - 1 - oldIndex) * 8;
+        const oldStackOffsetY = (state.cards.length - 1 - oldIndex) * 12;
+        const oldStackOffsetX = (state.cards.length - 1 - oldIndex) * 4;
+        oldCard.classList.remove('active');
+        
         animate(oldCard, {
-            x: [0, direction * 300],
-            opacity: [1, 0.7],
             scale: [1, 0.95]
         }, {
-            duration: 0.3,
+            duration: 0.2,
             ease: "easeIn",
             onUpdate: (latest) => {
-                oldCard.style.transform = `translateX(calc(-50% + ${latest.x}px)) translateY(${oldStackOffset}px) scale(${latest.scale})`;
+                oldCard.style.transform = `translateX(calc(-50% + ${oldStackOffsetX}px)) translateY(${oldStackOffsetY}px) scale(${latest.scale})`;
             }
         });
     }
@@ -512,20 +578,19 @@ function flipToCard(index) {
     // Bring new card to front
     const newCard = state.cards[index];
     if (newCard) {
-        const newStackOffset = (state.cards.length - 1 - index) * 8;
-        newCard.style.opacity = '0.7';
-        newCard.style.transform = `translateX(calc(-50% + ${-direction * 300}px)) translateY(${newStackOffset}px) scale(0.95)`;
+        const newStackOffsetY = (state.cards.length - 1 - index) * 12;
+        const newStackOffsetX = (state.cards.length - 1 - index) * 4;
+        newCard.classList.add('active');
+        newCard.style.transform = `translateX(calc(-50% + ${newStackOffsetX}px)) translateY(${newStackOffsetY}px) scale(0.95)`;
         
         requestAnimationFrame(() => {
             animate(newCard, {
-                x: [-direction * 300, 0],
-                opacity: [0.7, 1],
                 scale: [0.95, 1]
             }, {
                 duration: 0.3,
                 ease: "easeOut",
                 onUpdate: (latest) => {
-                    newCard.style.transform = `translateX(calc(-50% + ${latest.x}px)) translateY(${newStackOffset}px) scale(${latest.scale})`;
+                    newCard.style.transform = `translateX(calc(-50% + ${newStackOffsetX}px)) translateY(${newStackOffsetY}px) scale(${latest.scale})`;
                 },
                 onComplete: () => {
                     updateCardStackPosition();
@@ -539,22 +604,23 @@ function flipToCard(index) {
     updateDots();
 }
 
-// Reset card position
+// Reset card position (snap back if not dismissed)
 function resetCardPosition(card, index, currentOffsetX) {
     const { animate } = Motion;
-    const stackOffset = (state.cards.length - 1 - index) * 8;
+    const stackOffsetY = (state.cards.length - 1 - index) * 12;
+    const stackOffsetX = (state.cards.length - 1 - index) * 4;
     
     animate(card, {
         x: [currentOffsetX, 0],
-        rotateY: [currentOffsetX * 0.1, 0]
+        rotate: [currentOffsetX * 0.1, 0]
     }, {
         duration: 0.3,
         ease: "easeOut",
         onUpdate: (latest) => {
-            card.style.transform = `translateX(calc(-50% + ${latest.x}px)) translateY(${stackOffset}px) rotateY(${latest.rotateY}deg)`;
+            card.style.transform = `translateX(calc(-50% + ${stackOffsetX}px + ${latest.x}px)) translateY(${stackOffsetY}px) rotate(${latest.rotate}deg)`;
         },
         onComplete: () => {
-            card.style.transform = `translateX(-50%) translateY(${stackOffset}px)`;
+            card.style.transform = `translateX(calc(-50% + ${stackOffsetX}px)) translateY(${stackOffsetY}px)`;
         }
     });
 }
