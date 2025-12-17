@@ -46,9 +46,6 @@
             user-select: none;
             transition: transform 0.3s ease, z-index 0s;
             will-change: transform;
-            background: white;
-            border-radius: 12px;
-            overflow: hidden;
         }
         .story-card:active {
             cursor: grabbing;
@@ -69,7 +66,7 @@
         }
         /* Cards behind show their images with reduced opacity */
         .story-card:not(.active) {
-            background: white;
+            /* No background needed - transparent */
         }
         /* Mobile touch improvements */
         @media (hover: none) and (pointer: coarse) {
