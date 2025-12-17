@@ -21,7 +21,7 @@
     transform: translateX(-50%);
     cursor: grab;
     user-select: none;
-    transition: transform 0.3s ease, z-index 0s;
+    touch-action: pan-y; /* Allow vertical scroll, capture horizontal for swipe */
     will-change: transform;
 }
 
