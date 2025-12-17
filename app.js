@@ -5,12 +5,7 @@ const apiKeyInput = document.getElementById('api-key');
 const storyPromptInput = document.getElementById('story-prompt');
 const generateBtn = document.getElementById('generate-btn');
 const errorMessage = document.getElementById('error-message');
-const sceneImages = [
-    document.getElementById('scene-1'),
-    document.getElementById('scene-2'),
-    document.getElementById('scene-3'),
-    document.getElementById('scene-4')
-];
+const storyGrid = document.getElementById('story-grid');
 
 // State
 const state = {
@@ -18,6 +13,8 @@ const state = {
     isGenerating: false,
     currentScene: 0,
     images: [null, null, null, null],
+    captions: [null, null, null, null],
+    cards: [],
     error: null
 };
 
@@ -70,18 +67,18 @@ async function handleGenerate() {
     state.isGenerating = true;
     state.currentScene = 0;
     state.images = [null, null, null, null];
+    state.captions = [null, null, null, null];
     
-    // Clear previous images
-    sceneImages.forEach(img => {
-        img.src = '';
-        img.style.display = 'none';
-    });
+    // Clear previous cards
+    storyGrid.innerHTML = '';
+    state.cards = [];
 
     // Update UI
     updateButtonState();
     
-    // Generate scene prompts
+    // Generate scene prompts and captions
     const scenePrompts = generateScenePrompts(userPrompt);
+    const sceneCaptions = generateSceneCaptions(userPrompt);
 
     // Generate images sequentially
     try {
@@ -89,16 +86,24 @@ async function handleGenerate() {
             state.currentScene = i;
             updateButtonState();
             
+            // Show loading card for current scene
+            showLoadingCard(i);
+            
             const imageData = await generateImage(scenePrompts[i]);
             if (imageData) {
                 state.images[i] = imageData;
-                updateSceneImage(i, imageData);
+                state.captions[i] = sceneCaptions[i];
+                updateSceneCard(i, imageData, sceneCaptions[i]);
             } else {
                 throw new Error(`Failed to generate scene ${i + 1}`);
             }
         }
     } catch (error) {
         showError(error.message || 'Failed to generate story. Please try again.');
+        // Remove loading card if error occurred
+        if (state.cards[state.currentScene]) {
+            state.cards[state.currentScene].remove();
+        }
     } finally {
         state.isGenerating = false;
         state.currentScene = 0;
@@ -113,6 +118,19 @@ function generateScenePrompts(userPrompt) {
         `Scene 2 of 4 - Rising action: ${userPrompt}. Show a development or challenge emerging.`,
         `Scene 3 of 4 - Climax: ${userPrompt}. Show the peak moment of tension or action.`,
         `Scene 4 of 4 - Resolution: ${userPrompt}. Show how the story concludes.`
+    ];
+}
+
+// Generate scene captions from user prompt
+function generateSceneCaptions(userPrompt) {
+    // Extract the core idea from the prompt
+    const coreIdea = userPrompt.toLowerCase();
+    
+    return [
+        `The beginning: ${coreIdea}. This opening scene introduces the setting and characters, establishing the world where our story unfolds.`,
+        `Rising action: ${coreIdea}. A challenge emerges, creating tension and propelling the narrative forward as obstacles appear.`,
+        `Climax: ${coreIdea}. The story reaches its peak moment of tension, where the central conflict comes to a dramatic head.`,
+        `Resolution: ${coreIdea}. The story concludes, bringing closure and showing how the journey transforms the characters and their world.`
     ];
 }
 
@@ -174,12 +192,40 @@ async function generateImage(prompt) {
     }
 }
 
-// Update scene image in UI
-function updateSceneImage(index, imageData) {
-    if (sceneImages[index]) {
-        sceneImages[index].src = imageData;
-        sceneImages[index].style.display = 'block';
-    }
+// Show loading card for a scene
+function showLoadingCard(index) {
+    const card = document.createElement('div');
+    card.className = 'flex flex-col gap-2';
+    card.innerHTML = `
+        <div class="w-full aspect-square rounded-xl overflow-hidden bg-[#e5e5e5] relative animate-pulse">
+            <div class="absolute inset-0 flex items-center justify-center">
+                <p class="text-sm text-[#737373] font-medium">Generating Scene ${index + 1}...</p>
+            </div>
+        </div>
+        <div class="flex flex-col gap-1">
+            <div class="h-3 w-16 bg-[#e5e5e5] rounded animate-pulse"></div>
+            <div class="h-4 w-full bg-[#e5e5e5] rounded animate-pulse"></div>
+            <div class="h-4 w-3/4 bg-[#e5e5e5] rounded animate-pulse"></div>
+        </div>
+    `;
+    storyGrid.appendChild(card);
+    state.cards[index] = card;
+}
+
+// Update scene card with image and caption
+function updateSceneCard(index, imageData, caption) {
+    if (!state.cards[index]) return;
+    
+    const card = state.cards[index];
+    card.innerHTML = `
+        <div class="w-full aspect-square rounded-xl overflow-hidden bg-[#e5e5e5]">
+            <img src="${imageData}" alt="Scene ${index + 1}" class="w-full h-full object-cover" />
+        </div>
+        <div class="flex flex-col gap-1">
+            <div class="text-xs font-medium text-[#737373] uppercase tracking-wide">SCENE ${index + 1}</div>
+            <p class="text-sm text-[#171717] leading-relaxed">${caption}</p>
+        </div>
+    `;
 }
 
 // Update button state
@@ -197,12 +243,14 @@ function updateButtonState() {
 function showError(message) {
     state.error = message;
     errorMessage.textContent = message;
+    errorMessage.classList.remove('hidden');
 }
 
 // Clear error message
 function clearError() {
     state.error = null;
     errorMessage.textContent = '';
+    errorMessage.classList.add('hidden');
 }
 
 // Initialize app when DOM is ready

@@ -4,69 +4,59 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Story Generator</title>
-    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
 </head>
-<body>
-    <div class="container">
-        <header>
-            <h1>Story Generator</h1>
-            <p class="subtitle">Generate a 4-panel visual story from your idea</p>
+<body class="bg-[#fafafa] text-[#171717] font-sans leading-relaxed py-6 px-4 min-h-screen">
+    <div class="max-w-[900px] mx-auto">
+        <header class="text-center mb-12">
+            <h1 class="text-3xl md:text-[32px] font-semibold mb-2 text-[#171717]">Story Generator</h1>
+            <p class="text-base text-[#737373]">Generate a 4-panel visual story from your idea</p>
         </header>
 
-        <main>
-            <section class="input-section">
-                <div class="form-group">
-                    <label for="api-key">OpenAI API Key</label>
+        <main class="flex flex-col gap-12">
+            <section class="flex flex-col gap-5">
+                <div class="flex flex-col gap-2">
+                    <label for="api-key" class="text-sm font-medium text-[#171717]">OpenAI API Key</label>
                     <input 
                         type="password" 
                         id="api-key" 
                         placeholder="sk-..."
                         autocomplete="off"
+                        class="w-full px-3.5 py-3 border border-[#e5e5e5] rounded-lg text-sm font-sans bg-white text-[#171717] focus:outline-none focus:border-[#171717] transition-colors"
                     >
                 </div>
 
-                <div class="form-group">
-                    <label for="story-prompt">Your story idea</label>
+                <div class="flex flex-col gap-2">
+                    <label for="story-prompt" class="text-sm font-medium text-[#171717]">Your story idea</label>
                     <textarea 
                         id="story-prompt" 
                         rows="3"
                         placeholder="A robot learning to paint in Paris..."
+                        class="w-full px-3.5 py-3 border border-[#e5e5e5] rounded-lg text-sm font-sans bg-white text-[#171717] focus:outline-none focus:border-[#171717] transition-colors resize-y min-h-[80px]"
                     ></textarea>
                 </div>
 
-                <button id="generate-btn" class="generate-btn">
+                <button id="generate-btn" class="px-6 py-3 bg-black text-white rounded-lg text-sm font-medium font-sans cursor-pointer transition-opacity hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed">
                     Generate Story
                 </button>
 
-                <div id="error-message" class="error-message" role="alert"></div>
+                <div id="error-message" class="text-red-600 text-sm min-h-[20px] hidden" role="alert"></div>
             </section>
 
-            <section class="output-section">
-                <div class="story-grid">
-                    <div class="story-panel">
-                        <div class="panel-label">Scene 1</div>
-                        <div class="image-container">
-                            <img id="scene-1" alt="Scene 1" />
-                        </div>
-                    </div>
-                    <div class="story-panel">
-                        <div class="panel-label">Scene 2</div>
-                        <div class="image-container">
-                            <img id="scene-2" alt="Scene 2" />
-                        </div>
-                    </div>
-                    <div class="story-panel">
-                        <div class="panel-label">Scene 3</div>
-                        <div class="image-container">
-                            <img id="scene-3" alt="Scene 3" />
-                        </div>
-                    </div>
-                    <div class="story-panel">
-                        <div class="panel-label">Scene 4</div>
-                        <div class="image-container">
-                            <img id="scene-4" alt="Scene 4" />
-                        </div>
-                    </div>
+            <section class="w-full">
+                <div id="story-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Cards will be dynamically created here -->
                 </div>
             </section>
         </main>
