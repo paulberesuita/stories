@@ -35,13 +35,17 @@
             cursor: grab;
             overscroll-behavior-x: contain;
             scroll-behavior: smooth;
+            touch-action: pan-x pinch-zoom;
+            -webkit-overflow-scrolling: touch;
         }
         #carousel-container:active {
             cursor: grabbing;
         }
-        /* Smooth momentum scrolling on iOS */
-        #carousel-container {
-            -webkit-overflow-scrolling: touch;
+        /* Mobile touch improvements */
+        @media (hover: none) and (pointer: coarse) {
+            #carousel-container {
+                cursor: default;
+            }
         }
     </style>
 </head>

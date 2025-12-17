@@ -474,13 +474,19 @@ function setupSwipeNavigation() {
         animationFrame = requestAnimationFrame(updateScroll);
     }
 
-    // Touch events
+    // Touch events for mobile swipe
+    let touchStartY = 0;
+    let isHorizontalSwipe = false;
+    
     carouselContainer.addEventListener('touchstart', (e) => {
-        state.touchStartX = e.changedTouches[0].screenX;
+        const touch = e.touches[0];
+        state.touchStartX = touch.screenX;
+        touchStartY = touch.screenY;
         isDragging = true;
-        startX = e.changedTouches[0].screenX;
+        isHorizontalSwipe = false;
+        startX = touch.screenX;
         scrollLeft = carouselContainer.scrollLeft;
-        lastX = e.changedTouches[0].screenX;
+        lastX = touch.screenX;
         lastTime = Date.now();
         velocity = 0;
         carouselContainer.style.scrollBehavior = 'auto';
@@ -488,42 +494,66 @@ function setupSwipeNavigation() {
 
     carouselContainer.addEventListener('touchmove', (e) => {
         if (!isDragging) return;
-        const currentX = e.changedTouches[0].screenX;
-        const currentTime = Date.now();
-        const deltaX = currentX - lastX;
-        const deltaTime = currentTime - lastTime;
         
-        if (deltaTime > 0) {
-            velocity = deltaX / deltaTime;
+        const touch = e.touches[0];
+        const currentX = touch.screenX;
+        const currentY = touch.screenY;
+        const currentTime = Date.now();
+        
+        // Determine if this is a horizontal swipe
+        if (!isHorizontalSwipe) {
+            const deltaX = Math.abs(currentX - state.touchStartX);
+            const deltaY = Math.abs(currentY - touchStartY);
+            isHorizontalSwipe = deltaX > deltaY && deltaX > 10;
         }
         
-        // More responsive drag - 1:1 ratio feels natural
-        const walk = currentX - startX;
-        carouselContainer.scrollLeft = scrollLeft - walk;
-        
-        lastX = currentX;
-        lastTime = currentTime;
+        // Only handle horizontal swipes
+        if (isHorizontalSwipe) {
+            const deltaX = currentX - lastX;
+            const deltaTime = currentTime - lastTime;
+            
+            if (deltaTime > 0) {
+                velocity = deltaX / deltaTime;
+            }
+            
+            // Smooth 1:1 drag ratio
+            const walk = currentX - startX;
+            carouselContainer.scrollLeft = scrollLeft - walk;
+            
+            lastX = currentX;
+            lastTime = currentTime;
+        }
     }, { passive: true });
 
     carouselContainer.addEventListener('touchend', (e) => {
         if (!isDragging) return;
-        state.touchEndX = e.changedTouches[0].screenX;
+        
+        const touch = e.changedTouches[0];
+        state.touchEndX = touch.screenX;
         isDragging = false;
         carouselContainer.style.scrollBehavior = 'smooth';
         
-        // Use velocity to determine direction if significant
-        const swipeThreshold = 30;
-        const totalSwipe = state.touchEndX - state.touchStartX;
+        // Only process swipe if it was horizontal
+        if (!isHorizontalSwipe) {
+            return;
+        }
         
-        if (Math.abs(totalSwipe) > swipeThreshold || Math.abs(velocity) > 0.5) {
-            // Determine direction based on velocity or total swipe
-            if (totalSwipe < -swipeThreshold || velocity < -0.3) {
+        // Use velocity and distance to determine direction
+        const swipeThreshold = 50; // Increased threshold for better mobile experience
+        const totalSwipe = state.touchEndX - state.touchStartX;
+        const swipeDistance = Math.abs(totalSwipe);
+        const minSwipeDistance = 30;
+        
+        // Check if swipe is significant enough
+        if (swipeDistance > minSwipeDistance || Math.abs(velocity) > 0.3) {
+            // Determine direction
+            if (totalSwipe < -swipeThreshold || (totalSwipe < -minSwipeDistance && velocity < -0.2)) {
                 // Swipe left - go to next card
                 if (state.currentCardIndex < state.cards.length - 1) {
                     scrollToCard(state.currentCardIndex + 1);
                     return;
                 }
-            } else if (totalSwipe > swipeThreshold || velocity > 0.3) {
+            } else if (totalSwipe > swipeThreshold || (totalSwipe > minSwipeDistance && velocity > 0.2)) {
                 // Swipe right - go to previous card
                 if (state.currentCardIndex > 0) {
                     scrollToCard(state.currentCardIndex - 1);
@@ -532,8 +562,16 @@ function setupSwipeNavigation() {
             }
         }
         
-        // Otherwise snap to nearest
+        // Otherwise snap to nearest card
         snapToNearestCard();
+    }, { passive: true });
+    
+    carouselContainer.addEventListener('touchcancel', () => {
+        if (isDragging) {
+            isDragging = false;
+            carouselContainer.style.scrollBehavior = 'smooth';
+            snapToNearestCard();
+        }
     }, { passive: true });
 
     // Mouse drag events
