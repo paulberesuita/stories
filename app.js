@@ -344,6 +344,13 @@ function setupSwipeNavigation() {
     let velocity = 0;
     let lastX = 0;
     let lastTime = 0;
+    let animationFrame = null;
+
+    // Smooth scroll update function
+    function updateScroll() {
+        if (!isDragging) return;
+        animationFrame = requestAnimationFrame(updateScroll);
+    }
 
     // Touch events
     carouselContainer.addEventListener('touchstart', (e) => {
@@ -353,6 +360,8 @@ function setupSwipeNavigation() {
         scrollLeft = carouselContainer.scrollLeft;
         lastX = e.changedTouches[0].screenX;
         lastTime = Date.now();
+        velocity = 0;
+        carouselContainer.style.scrollBehavior = 'auto';
     }, { passive: true });
 
     carouselContainer.addEventListener('touchmove', (e) => {
@@ -366,6 +375,7 @@ function setupSwipeNavigation() {
             velocity = deltaX / deltaTime;
         }
         
+        // More responsive drag - 1:1 ratio feels natural
         const walk = currentX - startX;
         carouselContainer.scrollLeft = scrollLeft - walk;
         
@@ -377,8 +387,30 @@ function setupSwipeNavigation() {
         if (!isDragging) return;
         state.touchEndX = e.changedTouches[0].screenX;
         isDragging = false;
+        carouselContainer.style.scrollBehavior = 'smooth';
         
-        // Snap to nearest card
+        // Use velocity to determine direction if significant
+        const swipeThreshold = 30;
+        const totalSwipe = state.touchEndX - state.touchStartX;
+        
+        if (Math.abs(totalSwipe) > swipeThreshold || Math.abs(velocity) > 0.5) {
+            // Determine direction based on velocity or total swipe
+            if (totalSwipe < -swipeThreshold || velocity < -0.3) {
+                // Swipe left - go to next card
+                if (state.currentCardIndex < state.cards.length - 1) {
+                    scrollToCard(state.currentCardIndex + 1);
+                    return;
+                }
+            } else if (totalSwipe > swipeThreshold || velocity > 0.3) {
+                // Swipe right - go to previous card
+                if (state.currentCardIndex > 0) {
+                    scrollToCard(state.currentCardIndex - 1);
+                    return;
+                }
+            }
+        }
+        
+        // Otherwise snap to nearest
         snapToNearestCard();
     }, { passive: true });
 
@@ -389,8 +421,10 @@ function setupSwipeNavigation() {
         scrollLeft = carouselContainer.scrollLeft;
         lastX = e.pageX;
         lastTime = Date.now();
+        velocity = 0;
         carouselContainer.style.cursor = 'grabbing';
-        carouselContainer.style.scrollBehavior = 'auto'; // Disable smooth scroll during drag
+        carouselContainer.style.scrollBehavior = 'auto';
+        e.preventDefault();
     });
 
     carouselContainer.addEventListener('mouseleave', () => {
@@ -402,11 +436,32 @@ function setupSwipeNavigation() {
         }
     });
 
-    carouselContainer.addEventListener('mouseup', () => {
+    carouselContainer.addEventListener('mouseup', (e) => {
         if (isDragging) {
             isDragging = false;
             carouselContainer.style.cursor = 'grab';
             carouselContainer.style.scrollBehavior = 'smooth';
+            
+            // Use velocity to determine direction
+            const swipeThreshold = 50;
+            const totalDrag = e.pageX - startX;
+            
+            if (Math.abs(totalDrag) > swipeThreshold || Math.abs(velocity) > 0.5) {
+                if (totalDrag < -swipeThreshold || velocity < -0.3) {
+                    // Drag left - next card
+                    if (state.currentCardIndex < state.cards.length - 1) {
+                        scrollToCard(state.currentCardIndex + 1);
+                        return;
+                    }
+                } else if (totalDrag > swipeThreshold || velocity > 0.3) {
+                    // Drag right - previous card
+                    if (state.currentCardIndex > 0) {
+                        scrollToCard(state.currentCardIndex - 1);
+                        return;
+                    }
+                }
+            }
+            
             snapToNearestCard();
         }
     });
@@ -424,6 +479,7 @@ function setupSwipeNavigation() {
             velocity = deltaX / deltaTime;
         }
         
+        // Smooth 1:1 drag ratio
         const walk = currentX - startX;
         carouselContainer.scrollLeft = scrollLeft - walk;
         
@@ -431,15 +487,16 @@ function setupSwipeNavigation() {
         lastTime = currentTime;
     });
 
-    // Update current card index on scroll (with debounce for performance)
+    // Update current card index on scroll (more responsive)
     let scrollTimeout;
     carouselContainer.addEventListener('scroll', () => {
         clearTimeout(scrollTimeout);
+        // Update more frequently during scroll for better feedback
         scrollTimeout = setTimeout(() => {
             if (!isDragging) {
                 updateCurrentCardFromScroll();
             }
-        }, 50);
+        }, 16); // ~60fps updates
     });
 }
 
@@ -472,8 +529,13 @@ function snapToNearestCard() {
         }
     });
     
-    // Scroll to the closest card
-    scrollToCard(closestCard);
+    // Only snap if we're not already on the closest card
+    if (closestCard !== state.currentCardIndex) {
+        scrollToCard(closestCard);
+    } else {
+        // Even if it's the same card, ensure it's properly centered
+        scrollToCard(closestCard);
+    }
 }
 
 // Handle swipe gesture (legacy - now handled in snapToNearestCard)

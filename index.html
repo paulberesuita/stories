@@ -26,12 +26,18 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
-        /* Smooth scrolling */
+        /* Smooth scrolling and drag */
         #carousel-container {
             cursor: grab;
+            overscroll-behavior-x: contain;
+            scroll-behavior: smooth;
         }
         #carousel-container:active {
             cursor: grabbing;
+        }
+        /* Smooth momentum scrolling on iOS */
+        #carousel-container {
+            -webkit-overflow-scrolling: touch;
         }
     </style>
 </head>
@@ -74,8 +80,8 @@
 
             <section id="output-section" class="w-full hidden">
                 <div class="relative">
-                    <div id="carousel-container" class="overflow-x-auto scroll-smooth snap-x snap-mandatory scrollbar-hide" style="scrollbar-width: none; -ms-overflow-style: none;">
-                        <div id="story-carousel" class="flex gap-4 px-[calc(50vw-175px)] md:px-[calc(50vw-175px)]" style="scroll-snap-type: x mandatory;">
+                    <div id="carousel-container" class="overflow-x-auto scroll-smooth snap-x snap-mandatory scrollbar-hide" style="scrollbar-width: none; -ms-overflow-style: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;">
+                        <div id="story-carousel" class="flex gap-4 px-[calc(50vw-175px)] md:px-[calc(50vw-175px)]" style="scroll-snap-type: x proximity; scroll-padding: 0;">
                             <!-- Cards will be dynamically created here -->
                         </div>
                     </div>
