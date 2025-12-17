@@ -101,12 +101,15 @@
 
                 <div class="flex flex-col gap-2">
                     <label for="story-prompt" class="text-sm font-medium text-[#171717]">Your story idea</label>
-                    <textarea 
-                        id="story-prompt" 
+                    <textarea
+                        id="story-prompt"
                         rows="3"
                         placeholder="A robot learning to paint in Paris..."
                         class="w-full px-3.5 py-3 border border-[#e5e5e5] rounded-lg text-sm font-sans bg-white text-[#171717] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-y min-h-[80px]"
                     ></textarea>
+                    <div id="sample-stories" class="flex flex-wrap gap-2 mt-1">
+                        <!-- Sample story pills will be added by JS -->
+                    </div>
                 </div>
 
                 <button id="generate-btn" class="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium font-sans cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed">

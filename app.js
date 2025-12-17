@@ -9,6 +9,16 @@ const inputSection = document.getElementById('input-section');
 const outputSection = document.getElementById('output-section');
 const cardStack = document.getElementById('card-stack');
 const createNewBtn = document.getElementById('create-new-btn');
+const sampleStoriesContainer = document.getElementById('sample-stories');
+
+// Sample story prompts
+const sampleStories = [
+    { label: 'Robot painter', prompt: 'A robot learning to paint in Paris' },
+    { label: 'Lost astronaut', prompt: 'An astronaut stranded on a beautiful alien planet' },
+    { label: 'Tiny dragon', prompt: 'A tiny dragon befriends a lonely child' },
+    { label: 'Time traveler', prompt: 'A time traveler accidentally changes history' },
+    { label: 'Underwater city', prompt: 'Discovering a hidden city beneath the ocean' }
+];
 
 // State
 const state = {
@@ -54,7 +64,25 @@ function init() {
         }
     });
 
+    // Setup sample story pills
+    setupSampleStories();
+
     // Card drag is set up per card in showLoadingCard/updateSceneCard
+}
+
+// Setup sample story pills
+function setupSampleStories() {
+    sampleStories.forEach(story => {
+        const pill = document.createElement('button');
+        pill.type = 'button';
+        pill.className = 'px-3 py-1.5 text-xs font-medium text-[#525252] bg-[#f5f5f5] hover:bg-[#e5e5e5] rounded-full transition-colors cursor-pointer';
+        pill.textContent = story.label;
+        pill.addEventListener('click', () => {
+            storyPromptInput.value = story.prompt;
+            storyPromptInput.focus();
+        });
+        sampleStoriesContainer.appendChild(pill);
+    });
 }
 
 // Handle API key input change
@@ -285,21 +313,48 @@ function showLoadingCard(index) {
             </div>
         </div>
     `;
+    // Set initial state before adding to DOM
+    card.style.opacity = '0';
+    card.style.transform = 'translateX(-50%) translateY(20px) scale(0.95)';
+
     cardStack.appendChild(card);
     state.cards[index] = card;
-    
+
     // Position card in stack (newest on top)
     updateCardStackPosition();
-    
+
+    // Get the target Y position from stack
+    const isActive = index === state.currentCardIndex;
+    let positionFromTop = isActive ? 0 : Math.abs(index - state.currentCardIndex);
+    const stackOffsetY = positionFromTop * 14;
+    const offsetDirection = positionFromTop % 2 === 0 ? -1 : 1;
+    const stackOffsetX = isActive ? 0 : positionFromTop * 8 * offsetDirection;
+    const rotation = isActive ? 0 : positionFromTop * 2 * offsetDirection;
+
     // Animate card entrance using Motion API
     const { animate } = Motion;
     animate(card, {
         opacity: [0, 1],
-        y: [20, 0],
+        y: [stackOffsetY + 20, stackOffsetY],
         scale: [0.95, 1]
     }, {
         duration: 0.35,
-        ease: "easeOut"
+        ease: "easeOut",
+        onUpdate: (latest) => {
+            if (isActive) {
+                card.style.transform = `translateX(-50%) translateY(${latest.y}px) scale(${latest.scale})`;
+            } else {
+                card.style.transform = `translateX(calc(-50% + ${stackOffsetX}px)) translateY(${latest.y}px) rotate(${rotation}deg) scale(${latest.scale})`;
+            }
+        },
+        onComplete: () => {
+            // Set final transform matching updateCardStackPosition
+            if (isActive) {
+                card.style.transform = `translateX(-50%) translateY(${stackOffsetY}px)`;
+            } else {
+                card.style.transform = `translateX(calc(-50% + ${stackOffsetX}px)) translateY(${stackOffsetY}px) rotate(${rotation}deg)`;
+            }
+        }
     });
     
     // Animate loading pulse
@@ -440,18 +495,17 @@ function setupCardDrag(card, index) {
     
     const handleMove = (clientX, clientY) => {
         if (!isDragging) return;
-        
+
         currentX = clientX - startX;
         currentY = clientY - startY;
-        
+
         // Only allow horizontal dragging
         dragOffsetX = currentX;
         dragOffsetY = 0;
-        
-        // Apply transform - top card is centered, so just add drag offset
-        const stackOffsetY = (state.cards.length - 1 - index) * 14;
+
+        // Apply transform - active card is at Y=0, just add drag offset
         const rotation = dragOffsetX * 0.15; // More rotation during drag
-        card.style.transform = `translateX(calc(-50% + ${dragOffsetX}px)) translateY(${stackOffsetY}px) rotate(${rotation}deg)`;
+        card.style.transform = `translateX(calc(-50% + ${dragOffsetX}px)) translateY(0px) rotate(${rotation}deg)`;
     };
     
     const handleEnd = () => {
@@ -561,9 +615,9 @@ function dismissCard(currentIndex, nextIndex, direction) {
         if (yMatch) currentY = parseFloat(yMatch[1]) || 0;
         if (rMatch) currentRotate = parseFloat(rMatch[1]) || 0;
 
-        // Target values
+        // Target values - active card goes to 0,0, others stack behind
         const targetX = isActive ? 0 : stackOffsetX;
-        const targetY = stackOffsetY;
+        const targetY = isActive ? 0 : stackOffsetY;
         const targetRotate = isActive ? 0 : rotation;
 
         // Update classes
@@ -577,18 +631,17 @@ function dismissCard(currentIndex, nextIndex, direction) {
         const controls = animate(card, {
             x: [currentX, targetX],
             y: [currentY, targetY],
-            rotate: [currentRotate, targetRotate],
-            scale: isActive ? [0.95, 1] : [1, 0.95]
+            rotate: [currentRotate, targetRotate]
         }, {
             duration: 0.5,
             ease: spring({ stiffness: 300, damping: 25 }),
             onUpdate: (latest) => {
-                card.style.transform = `translateX(calc(-50% + ${latest.x}px)) translateY(${latest.y}px) rotate(${latest.rotate}deg) scale(${latest.scale})`;
+                card.style.transform = `translateX(calc(-50% + ${latest.x}px)) translateY(${latest.y}px) rotate(${latest.rotate}deg)`;
             },
             onComplete: () => {
                 // Set final transform
                 if (isActive) {
-                    card.style.transform = `translateX(-50%) translateY(${targetY}px)`;
+                    card.style.transform = `translateX(-50%) translateY(0px)`;
                 } else {
                     card.style.transform = `translateX(calc(-50% + ${targetX}px)) translateY(${targetY}px) rotate(${targetRotate}deg)`;
                 }
@@ -609,79 +662,83 @@ function flipToCard(index) {
     // Update index immediately
     state.currentCardIndex = index;
 
-    // Animate old card to back
+    // Animate old card to back - calculate position relative to NEW current card
     const oldCard = state.cards[oldIndex];
     if (oldCard) {
         cancelCardAnimation(oldCard);
 
-        const oldStackOffsetY = (state.cards.length - 1 - oldIndex) * 14;
-        const positionFromTop = state.cards.length - 1 - oldIndex;
-        const offsetDirection = positionFromTop % 2 === 0 ? -1 : 1;
-        const oldStackOffsetX = positionFromTop * 8 * offsetDirection;
-        const oldRotation = positionFromTop * 2 * offsetDirection;
+        const oldPositionFromTop = Math.abs(oldIndex - state.currentCardIndex);
+        const oldOffsetDirection = oldPositionFromTop % 2 === 0 ? -1 : 1;
+        const oldStackOffsetY = oldPositionFromTop * 14;
+        const oldStackOffsetX = oldPositionFromTop * 8 * oldOffsetDirection;
+        const oldRotation = oldPositionFromTop * 2 * oldOffsetDirection;
 
         oldCard.classList.remove('active');
+        oldCard.style.zIndex = state.cards.length - oldPositionFromTop;
 
         const oldControls = animate(oldCard, {
             x: [0, oldStackOffsetX],
-            rotate: [0, oldRotation],
-            scale: [1, 0.95]
+            y: [0, oldStackOffsetY],
+            rotate: [0, oldRotation]
         }, {
             duration: 0.4,
             ease: spring({ stiffness: 300, damping: 25 }),
             onUpdate: (latest) => {
-                oldCard.style.transform = `translateX(calc(-50% + ${latest.x}px)) translateY(${oldStackOffsetY}px) rotate(${latest.rotate}deg) scale(${latest.scale})`;
+                oldCard.style.transform = `translateX(calc(-50% + ${latest.x}px)) translateY(${latest.y}px) rotate(${latest.rotate}deg)`;
+            },
+            onComplete: () => {
+                oldCard.style.transform = `translateX(calc(-50% + ${oldStackOffsetX}px)) translateY(${oldStackOffsetY}px) rotate(${oldRotation}deg)`;
             }
         });
 
         trackCardAnimation(oldCard, oldControls);
     }
 
-    // Bring new card to front
+    // Bring new card to front - animates to 0,0
     const newCard = state.cards[index];
     if (newCard) {
         cancelCardAnimation(newCard);
 
-        const newStackOffsetY = (state.cards.length - 1 - index) * 14;
-        const positionFromTop = state.cards.length - 1 - index;
-        const offsetDirection = positionFromTop % 2 === 0 ? -1 : 1;
-        const newStackOffsetX = positionFromTop * 8 * offsetDirection;
-        const newRotation = positionFromTop * 2 * offsetDirection;
+        // Get current position of new card
+        const currentTransform = newCard.style.transform || '';
+        let currentX = 0, currentY = 0, currentRotate = 0;
+        const xMatch = currentTransform.match(/translateX\([^)]*([-\d.]+)px/);
+        const yMatch = currentTransform.match(/translateY\(([-\d.]+)px/);
+        const rMatch = currentTransform.match(/rotate\(([-\d.]+)deg/);
+        if (xMatch) currentX = parseFloat(xMatch[1]) || 0;
+        if (yMatch) currentY = parseFloat(yMatch[1]) || 0;
+        if (rMatch) currentRotate = parseFloat(rMatch[1]) || 0;
 
         newCard.classList.add('active');
-        newCard.style.transform = `translateX(calc(-50% + ${newStackOffsetX}px)) translateY(${newStackOffsetY}px) rotate(${newRotation}deg) scale(0.95)`;
+        newCard.style.zIndex = state.cards.length + 10;
 
-        requestAnimationFrame(() => {
-            const newControls = animate(newCard, {
-                x: [newStackOffsetX, 0],
-                rotate: [newRotation, 0],
-                scale: [0.95, 1]
-            }, {
-                duration: 0.5,
-                ease: spring({ stiffness: 300, damping: 25 }),
-                onUpdate: (latest) => {
-                    newCard.style.transform = `translateX(calc(-50% + ${latest.x}px)) translateY(${newStackOffsetY}px) rotate(${latest.rotate}deg) scale(${latest.scale})`;
-                },
-                onComplete: () => {
-                    updateCardStackPosition();
-                }
-            });
-
-            trackCardAnimation(newCard, newControls);
+        const newControls = animate(newCard, {
+            x: [currentX, 0],
+            y: [currentY, 0],
+            rotate: [currentRotate, 0]
+        }, {
+            duration: 0.5,
+            ease: spring({ stiffness: 300, damping: 25 }),
+            onUpdate: (latest) => {
+                newCard.style.transform = `translateX(calc(-50% + ${latest.x}px)) translateY(${latest.y}px) rotate(${latest.rotate}deg)`;
+            },
+            onComplete: () => {
+                newCard.style.transform = `translateX(-50%) translateY(0px)`;
+            }
         });
-    } else {
-        updateCardStackPosition();
+
+        trackCardAnimation(newCard, newControls);
     }
 }
 
 // Reset card position (snap back if not dismissed) - uses spring for natural feel
 function resetCardPosition(card, index, currentOffsetX) {
     const { animate, spring } = Motion;
-    const stackOffsetY = (state.cards.length - 1 - index) * 14;
 
     // Cancel any existing animation on this card
     cancelCardAnimation(card);
 
+    // Active card is always at Y=0
     const controls = animate(card, {
         x: [currentOffsetX, 0],
         rotate: [currentOffsetX * 0.15, 0]
@@ -689,10 +746,10 @@ function resetCardPosition(card, index, currentOffsetX) {
         duration: 0.5,
         ease: spring({ stiffness: 300, damping: 25 }),
         onUpdate: (latest) => {
-            card.style.transform = `translateX(calc(-50% + ${latest.x}px)) translateY(${stackOffsetY}px) rotate(${latest.rotate}deg)`;
+            card.style.transform = `translateX(calc(-50% + ${latest.x}px)) translateY(0px) rotate(${latest.rotate}deg)`;
         },
         onComplete: () => {
-            card.style.transform = `translateX(-50%) translateY(${stackOffsetY}px)`;
+            card.style.transform = `translateX(-50%) translateY(0px)`;
         }
     });
 
