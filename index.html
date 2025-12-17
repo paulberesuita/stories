@@ -30,20 +30,29 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
-        /* Smooth scrolling and drag */
-        #carousel-container {
-            cursor: grab;
-            overscroll-behavior-x: contain;
-            scroll-behavior: smooth;
-            touch-action: pan-x pinch-zoom;
-            -webkit-overflow-scrolling: touch;
+        /* Card stack styling */
+        #card-stack {
+            perspective: 1000px;
         }
-        #carousel-container:active {
+        .story-card {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            cursor: grab;
+            user-select: none;
+            transition: transform 0.3s ease, z-index 0s;
+            will-change: transform;
+        }
+        .story-card:active {
             cursor: grabbing;
+        }
+        .story-card.dragging {
+            transition: none;
         }
         /* Mobile touch improvements */
         @media (hover: none) and (pointer: coarse) {
-            #carousel-container {
+            .story-card {
                 cursor: default;
             }
         }
@@ -87,16 +96,14 @@
             </section>
 
             <section id="output-section" class="w-full hidden flex flex-col items-center justify-center">
-                <div class="relative w-full">
-                    <div id="carousel-container" class="overflow-x-auto scroll-smooth snap-x snap-mandatory scrollbar-hide" style="scrollbar-width: none; -ms-overflow-style: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;">
-                        <div id="story-carousel" class="flex gap-4 px-[calc(50vw-175px)] md:px-[calc(50vw-175px)]" style="scroll-snap-type: x proximity; scroll-padding: 0;">
-                            <!-- Cards will be dynamically created here -->
-                        </div>
+                <div class="relative w-full flex justify-center items-center" style="min-height: 500px;">
+                    <div id="card-stack" class="relative w-full max-w-[400px] mx-auto" style="height: 500px;">
+                        <!-- Cards will be dynamically created here and stacked -->
                     </div>
-                    <!-- Navigation dots -->
-                    <div id="carousel-dots" class="flex justify-center gap-2 mt-4">
-                        <!-- Dots will be dynamically created here -->
-                    </div>
+                </div>
+                <!-- Navigation dots -->
+                <div id="carousel-dots" class="flex justify-center gap-2 mt-6">
+                    <!-- Dots will be dynamically created here -->
                 </div>
                 <button id="create-new-btn" class="mt-6 mx-auto px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium font-sans cursor-pointer transition-colors hidden">
                     Create New Story

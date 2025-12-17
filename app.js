@@ -7,8 +7,7 @@ const generateBtn = document.getElementById('generate-btn');
 const errorMessage = document.getElementById('error-message');
 const inputSection = document.getElementById('input-section');
 const outputSection = document.getElementById('output-section');
-const storyCarousel = document.getElementById('story-carousel');
-const carouselContainer = document.getElementById('carousel-container');
+const cardStack = document.getElementById('card-stack');
 const carouselDots = document.getElementById('carousel-dots');
 const createNewBtn = document.getElementById('create-new-btn');
 
@@ -43,8 +42,7 @@ function init() {
         }
     });
 
-    // Swipe navigation for carousel
-    setupSwipeNavigation();
+    // Card drag is set up per card in showLoadingCard/updateSceneCard
 }
 
 // Handle API key input change
@@ -86,9 +84,10 @@ async function handleGenerate() {
     state.captions = [null, null, null, null];
     
     // Clear previous cards
-    storyCarousel.innerHTML = '';
+    cardStack.innerHTML = '';
     carouselDots.innerHTML = '';
     state.cards = [];
+    state.currentCardIndex = 0;
     createNewBtn.classList.add('hidden');
 
     // Update UI
@@ -98,17 +97,13 @@ async function handleGenerate() {
     const scenePrompts = generateScenePrompts(userPrompt);
     const sceneCaptions = generateSceneCaptions(userPrompt);
 
-    // Show all loading cards at once
+    // Show all loading cards at once in stack
     for (let i = 0; i < 4; i++) {
         showLoadingCard(i);
     }
     
-    // Center on first card
-    state.currentCardIndex = 0;
-    requestAnimationFrame(() => {
-        scrollToCard(0);
-        updateDots();
-    });
+    // Update dots
+    updateDots();
     
     // Generate all images in parallel
     try {
@@ -263,9 +258,10 @@ async function generateImage(prompt) {
 // Show loading card for a scene
 function showLoadingCard(index) {
     const card = document.createElement('div');
-    card.className = 'flex flex-col gap-2 flex-shrink-0 w-[75vw] max-w-[350px] snap-center';
+    card.className = 'story-card flex flex-col gap-2 w-[85vw] max-w-[400px]';
+    card.dataset.index = index;
     card.innerHTML = `
-        <div class="w-full aspect-square rounded-xl overflow-hidden bg-[#e5e5e5] relative" id="loading-image-${index}">
+        <div class="w-full aspect-square rounded-xl overflow-hidden bg-[#e5e5e5] relative shadow-lg" id="loading-image-${index}">
             <div class="absolute inset-0 flex items-center justify-center">
                 <p class="text-sm text-blue-400 font-medium">Generating Scene ${index + 1}...</p>
             </div>
@@ -276,8 +272,11 @@ function showLoadingCard(index) {
             <div class="h-4 w-3/4 bg-[#e5e5e5] rounded" id="loading-skeleton-3-${index}"></div>
         </div>
     `;
-    storyCarousel.appendChild(card);
+    cardStack.appendChild(card);
     state.cards[index] = card;
+    
+    // Position card in stack (newest on top)
+    updateCardStackPosition();
     
     // Animate card entrance using Motion API
     const { animate } = Motion;
@@ -304,12 +303,8 @@ function showLoadingCard(index) {
         ease: "easeInOut"
     });
     
-    updateDots();
-    
-    // Center the card after it's added to DOM
-    requestAnimationFrame(() => {
-        scrollToCard(index);
-    });
+    // Setup drag for this card
+    setupCardDrag(card, index);
 }
 
 // Update scene card with image and caption
@@ -318,7 +313,7 @@ function updateSceneCard(index, imageData, caption) {
     
     const card = state.cards[index];
     const imageContainer = document.createElement('div');
-    imageContainer.className = 'w-full aspect-square rounded-xl overflow-hidden bg-[#e5e5e5]';
+    imageContainer.className = 'w-full aspect-square rounded-xl overflow-hidden bg-[#e5e5e5] shadow-lg';
     const img = document.createElement('img');
     img.src = imageData;
     img.alt = `Scene ${index + 1}`;
@@ -338,8 +333,15 @@ function updateSceneCard(index, imageData, caption) {
     `;
     card.appendChild(captionDiv);
     
-    // Ensure card maintains its width class
-    card.className = 'flex flex-col gap-2 flex-shrink-0 w-[75vw] max-w-[350px] snap-center';
+    // Ensure card maintains its classes
+    card.className = 'story-card flex flex-col gap-2 w-[85vw] max-w-[400px]';
+    card.dataset.index = index;
+    
+    // Update stack position
+    updateCardStackPosition();
+    
+    // Re-setup drag
+    setupCardDrag(card, index);
     
     // Animate image reveal
     const { animate } = Motion;
@@ -354,51 +356,207 @@ function updateSceneCard(index, imageData, caption) {
     };
 }
 
-// Scroll carousel to specific card
-function scrollToCard(index) {
-    if (!state.cards[index]) return;
-    
-    const card = state.cards[index];
-    const container = carouselContainer;
-    const carousel = storyCarousel;
-    
-    // Use getBoundingClientRect for accurate positioning
-    const containerRect = container.getBoundingClientRect();
-    const cardRect = card.getBoundingClientRect();
-    const carouselRect = carousel.getBoundingClientRect();
-    
-    // Calculate scroll position to center the card
-    // Get card position relative to carousel
-    const cardLeftRelativeToCarousel = cardRect.left - carouselRect.left;
-    // Add current scroll to get absolute position
-    const cardAbsoluteLeft = cardLeftRelativeToCarousel + container.scrollLeft;
-    
-    // Calculate center position
-    const containerCenter = containerRect.width / 2;
-    const cardCenter = cardRect.width / 2;
-    const targetScroll = cardAbsoluteLeft - containerCenter + cardCenter;
-    
-    // Use Motion for spring-based scroll animation
-    const { animate } = Motion;
-    const startScroll = container.scrollLeft;
-    const scrollDistance = targetScroll - startScroll;
-    
-    // Create a temporary object to animate scroll value
-    const scrollProxy = { value: startScroll };
-    
-    animate(scrollProxy, {
-        value: targetScroll
-    }, {
-        type: "spring",
-        stiffness: 300,
-        damping: 30,
-        onUpdate: (latest) => {
-            container.scrollLeft = latest.value;
+// Update card stack positions (stack cards with offset)
+function updateCardStackPosition() {
+    state.cards.forEach((card, index) => {
+        if (!card) return;
+        
+        // Calculate z-index (top card has highest z-index)
+        // Current card should be on top
+        let zIndex;
+        if (index === state.currentCardIndex) {
+            zIndex = state.cards.length + 1; // Top card
+        } else if (index < state.currentCardIndex) {
+            zIndex = state.cards.length - index; // Cards behind current
+        } else {
+            zIndex = state.cards.length - index; // Cards in front of current
+        }
+        
+        const stackOffset = (state.cards.length - 1 - index) * 8; // 8px offset per card
+        
+        card.style.zIndex = zIndex;
+        card.style.display = 'block';
+        card.style.transform = `translateX(-50%) translateY(${stackOffset}px)`;
+        
+        // Add shadow to top card
+        if (index === state.currentCardIndex) {
+            card.style.boxShadow = '0 10px 30px rgba(0, 0, 0, 0.2)';
+        } else {
+            card.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
         }
     });
+}
+
+// Setup drag interaction for a card
+function setupCardDrag(card, index) {
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+    let currentX = 0;
+    let currentY = 0;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
     
+    const handleStart = (clientX, clientY) => {
+        // Only allow dragging the top card
+        if (index !== state.currentCardIndex) return;
+        
+        isDragging = true;
+        startX = clientX;
+        startY = clientY;
+        currentX = 0;
+        currentY = 0;
+        card.classList.add('dragging');
+    };
+    
+    const handleMove = (clientX, clientY) => {
+        if (!isDragging) return;
+        
+        currentX = clientX - startX;
+        currentY = clientY - startY;
+        
+        // Only allow horizontal dragging
+        dragOffsetX = currentX;
+        dragOffsetY = 0;
+        
+        // Apply transform
+        const stackOffset = (state.cards.length - 1 - index) * 8;
+        card.style.transform = `translateX(calc(-50% + ${dragOffsetX}px)) translateY(${stackOffset}px) rotateY(${dragOffsetX * 0.1}deg)`;
+    };
+    
+    const handleEnd = () => {
+        if (!isDragging) return;
+        isDragging = false;
+        card.classList.remove('dragging');
+        
+        const threshold = 100; // Minimum drag distance to flip card
+        const velocity = Math.abs(currentX);
+        
+        if (Math.abs(dragOffsetX) > threshold || velocity > 5) {
+            // Flip to next/previous card
+            if (dragOffsetX < 0 && state.currentCardIndex < state.cards.length - 1) {
+                // Swiped left - next card
+                flipToCard(state.currentCardIndex + 1);
+            } else if (dragOffsetX > 0 && state.currentCardIndex > 0) {
+                // Swiped right - previous card
+                flipToCard(state.currentCardIndex - 1);
+            } else {
+                // Snap back
+                resetCardPosition(card, index, dragOffsetX);
+            }
+        } else {
+            // Snap back
+            resetCardPosition(card, index, dragOffsetX);
+        }
+    };
+    
+    // Mouse events
+    card.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        handleStart(e.clientX, e.clientY);
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+        handleMove(e.clientX, e.clientY);
+    });
+    
+    document.addEventListener('mouseup', () => {
+        handleEnd();
+    });
+    
+    // Touch events
+    card.addEventListener('touchstart', (e) => {
+        const touch = e.touches[0];
+        handleStart(touch.clientX, touch.clientY);
+    }, { passive: true });
+    
+    document.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        const touch = e.touches[0];
+        handleMove(touch.clientX, touch.clientY);
+    }, { passive: true });
+    
+    document.addEventListener('touchend', () => {
+        handleEnd();
+    }, { passive: true });
+}
+
+// Flip to a specific card
+function flipToCard(index) {
+    if (index < 0 || index >= state.cards.length || index === state.currentCardIndex) return;
+    
+    const { animate } = Motion;
+    const oldIndex = state.currentCardIndex;
+    const direction = index > oldIndex ? 1 : -1; // 1 = next, -1 = previous
+    
+    // Update index immediately
     state.currentCardIndex = index;
+    
+    // Animate old card to back
+    const oldCard = state.cards[oldIndex];
+    if (oldCard) {
+        const oldStackOffset = (state.cards.length - 1 - oldIndex) * 8;
+        animate(oldCard, {
+            x: [0, direction * 300],
+            opacity: [1, 0.7],
+            scale: [1, 0.95]
+        }, {
+            duration: 0.3,
+            ease: "easeIn",
+            onUpdate: (latest) => {
+                oldCard.style.transform = `translateX(calc(-50% + ${latest.x}px)) translateY(${oldStackOffset}px) scale(${latest.scale})`;
+            }
+        });
+    }
+    
+    // Bring new card to front
+    const newCard = state.cards[index];
+    if (newCard) {
+        const newStackOffset = (state.cards.length - 1 - index) * 8;
+        newCard.style.opacity = '0.7';
+        newCard.style.transform = `translateX(calc(-50% + ${-direction * 300}px)) translateY(${newStackOffset}px) scale(0.95)`;
+        
+        requestAnimationFrame(() => {
+            animate(newCard, {
+                x: [-direction * 300, 0],
+                opacity: [0.7, 1],
+                scale: [0.95, 1]
+            }, {
+                duration: 0.3,
+                ease: "easeOut",
+                onUpdate: (latest) => {
+                    newCard.style.transform = `translateX(calc(-50% + ${latest.x}px)) translateY(${newStackOffset}px) scale(${latest.scale})`;
+                },
+                onComplete: () => {
+                    updateCardStackPosition();
+                }
+            });
+        });
+    } else {
+        updateCardStackPosition();
+    }
+    
     updateDots();
+}
+
+// Reset card position
+function resetCardPosition(card, index, currentOffsetX) {
+    const { animate } = Motion;
+    const stackOffset = (state.cards.length - 1 - index) * 8;
+    
+    animate(card, {
+        x: [currentOffsetX, 0],
+        rotateY: [currentOffsetX * 0.1, 0]
+    }, {
+        duration: 0.3,
+        ease: "easeOut",
+        onUpdate: (latest) => {
+            card.style.transform = `translateX(calc(-50% + ${latest.x}px)) translateY(${stackOffset}px) rotateY(${latest.rotateY}deg)`;
+        },
+        onComplete: () => {
+            card.style.transform = `translateX(-50%) translateY(${stackOffset}px)`;
+        }
+    });
 }
 
 // Update navigation dots
@@ -452,7 +610,7 @@ function updateDots() {
         }
         
         dot.addEventListener('click', () => {
-            scrollToCard(i);
+            flipToCard(i);
         });
         carouselDots.appendChild(dot);
     }
