@@ -367,24 +367,31 @@ function updateCardStackPosition() {
         if (!card) return;
         
         const isActive = index === state.currentCardIndex;
-        const zIndex = isActive ? state.cards.length + 10 : state.cards.length - index;
         
-        // Calculate stack position from top
-        const positionFromTop = state.cards.length - 1 - index;
+        // Calculate position relative to current card
+        let positionFromTop;
+        if (index === state.currentCardIndex) {
+            positionFromTop = 0; // On top
+        } else if (index < state.currentCardIndex) {
+            // Card is before current in array, goes behind
+            positionFromTop = state.currentCardIndex - index;
+        } else {
+            // Card is after current in array, goes behind
+            positionFromTop = index - state.currentCardIndex;
+        }
+        
+        const zIndex = isActive ? state.cards.length + 10 : state.cards.length - positionFromTop;
         
         // Alternating offsets for natural "dropped deck" look
-        // Even positions offset left, odd positions offset right
         const offsetDirection = positionFromTop % 2 === 0 ? -1 : 1;
         const stackOffsetY = positionFromTop * 14; // 14px vertical offset
         const stackOffsetX = positionFromTop * 8 * offsetDirection; // Alternating horizontal offset
-        
-        // Small rotations for organic feel (alternating directions)
         const rotation = positionFromTop * 2 * offsetDirection; // Alternating rotation
         
         card.style.zIndex = zIndex;
         card.style.display = 'block';
         
-        // Center the card properly - use translateX(-50%) to center, then add offset
+        // Set transform
         if (isActive) {
             // Top card: centered, no rotation
             card.style.transform = `translateX(-50%) translateY(${stackOffsetY}px)`;
@@ -494,61 +501,87 @@ function setupCardDrag(card, index) {
     }, { passive: true });
 }
 
-// Dismiss current card and reveal next/previous (swipe to dismiss)
+// Move current card to back and reveal next/previous (swipe to cycle)
 function dismissCard(currentIndex, nextIndex, direction) {
     if (nextIndex < 0 || nextIndex >= state.cards.length) return;
     
     const { animate } = Motion;
-    const currentCard = state.cards[currentIndex];
-    const nextCard = state.cards[nextIndex];
     
-    if (!currentCard || !nextCard) return;
+    // Update current index first
+    const oldIndex = state.currentCardIndex;
+    state.currentCardIndex = nextIndex;
     
-    // Animate current card off screen (dismiss)
-    const dismissDistance = direction * 600;
-    const stackOffsetY = (state.cards.length - 1 - currentIndex) * 14;
-    
-    animate(currentCard, {
-        x: [0, dismissDistance],
-        opacity: [1, 0],
-        rotate: [0, direction * 25],
-        scale: [1, 0.7]
-    }, {
-        duration: 0.4,
-        ease: "easeIn",
-        onUpdate: (latest) => {
-            currentCard.style.transform = `translateX(calc(-50% + ${latest.x}px)) translateY(${stackOffsetY}px) rotate(${latest.rotate}deg) scale(${latest.scale})`;
-        },
-        onComplete: () => {
-            // Update current index
-            state.currentCardIndex = nextIndex;
-            updateCardStackPosition();
+    // Animate all cards to their new positions
+    state.cards.forEach((card, index) => {
+        if (!card) return;
+        
+        const isActive = index === state.currentCardIndex;
+        
+        // Calculate position relative to current card
+        let positionFromTop;
+        if (index === state.currentCardIndex) {
+            positionFromTop = 0; // On top
+        } else if (index < state.currentCardIndex) {
+            positionFromTop = state.currentCardIndex - index; // Behind
+        } else {
+            positionFromTop = index - state.currentCardIndex; // Behind
         }
-    });
-    
-    // Bring next card to front with animation
-    const newStackOffsetY = (state.cards.length - 1 - nextIndex) * 14;
-    
-    // Set initial position (with its previous offset)
-    const positionFromTop = state.cards.length - 1 - nextIndex;
-    const offsetDirection = positionFromTop % 2 === 0 ? -1 : 1;
-    const prevOffsetX = positionFromTop * 8 * offsetDirection;
-    const prevRotation = positionFromTop * 2 * offsetDirection;
-    
-    nextCard.style.opacity = '1';
-    nextCard.style.transform = `translateX(calc(-50% + ${prevOffsetX}px)) translateY(${newStackOffsetY}px) rotate(${prevRotation}deg) scale(0.95)`;
-    nextCard.classList.add('active');
-    
-    requestAnimationFrame(() => {
-        animate(nextCard, {
-            x: [prevOffsetX, 0],
-            rotate: [prevRotation, 0],
-            scale: [0.95, 1]
+        
+        const zIndex = isActive ? state.cards.length + 10 : state.cards.length - positionFromTop;
+        card.style.zIndex = zIndex;
+        
+        // Calculate target position
+        const offsetDirection = positionFromTop % 2 === 0 ? -1 : 1;
+        const stackOffsetY = positionFromTop * 14;
+        const stackOffsetX = positionFromTop * 8 * offsetDirection;
+        const rotation = positionFromTop * 2 * offsetDirection;
+        
+        // Get current transform values by parsing
+        const currentTransform = card.style.transform || '';
+        let currentX = 0, currentY = 0, currentRotate = 0;
+        
+        // Parse current transform
+        const xMatch = currentTransform.match(/translateX\([^)]*([-\d.]+)px/);
+        const yMatch = currentTransform.match(/translateY\(([-\d.]+)px/);
+        const rMatch = currentTransform.match(/rotate\(([-\d.]+)deg/);
+        
+        if (xMatch) currentX = parseFloat(xMatch[1]) || 0;
+        if (yMatch) currentY = parseFloat(yMatch[1]) || 0;
+        if (rMatch) currentRotate = parseFloat(rMatch[1]) || 0;
+        
+        // Target values
+        const targetX = isActive ? 0 : stackOffsetX;
+        const targetY = stackOffsetY;
+        const targetRotate = isActive ? 0 : rotation;
+        
+        // Update classes and shadow
+        if (isActive) {
+            card.classList.add('active');
+            card.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.15)';
+        } else {
+            card.classList.remove('active');
+            card.style.boxShadow = 'none';
+        }
+        
+        // Animate to new position
+        animate(card, {
+            x: [currentX, targetX],
+            y: [currentY, targetY],
+            rotate: [currentRotate, targetRotate],
+            scale: isActive ? [0.95, 1] : [1, 0.95]
         }, {
             duration: 0.4,
             ease: "easeOut",
             onUpdate: (latest) => {
-                nextCard.style.transform = `translateX(calc(-50% + ${latest.x}px)) translateY(${newStackOffsetY}px) rotate(${latest.rotate}deg) scale(${latest.scale})`;
+                card.style.transform = `translateX(calc(-50% + ${latest.x}px)) translateY(${latest.y}px) rotate(${latest.rotate}deg) scale(${latest.scale})`;
+            },
+            onComplete: () => {
+                // Set final transform
+                if (isActive) {
+                    card.style.transform = `translateX(-50%) translateY(${targetY}px)`;
+                } else {
+                    card.style.transform = `translateX(calc(-50% + ${targetX}px)) translateY(${targetY}px) rotate(${targetRotate}deg)`;
+                }
             }
         });
     });
