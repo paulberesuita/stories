@@ -5,7 +5,12 @@ const apiKeyInput = document.getElementById('api-key');
 const storyPromptInput = document.getElementById('story-prompt');
 const generateBtn = document.getElementById('generate-btn');
 const errorMessage = document.getElementById('error-message');
-const storyGrid = document.getElementById('story-grid');
+const inputSection = document.getElementById('input-section');
+const outputSection = document.getElementById('output-section');
+const storyCarousel = document.getElementById('story-carousel');
+const carouselContainer = document.getElementById('carousel-container');
+const carouselDots = document.getElementById('carousel-dots');
+const createNewBtn = document.getElementById('create-new-btn');
 
 // State
 const state = {
@@ -15,7 +20,10 @@ const state = {
     images: [null, null, null, null],
     captions: [null, null, null, null],
     cards: [],
-    error: null
+    currentCardIndex: 0,
+    error: null,
+    touchStartX: 0,
+    touchEndX: 0
 };
 
 // Initialize
@@ -28,11 +36,15 @@ function init() {
     // Event listeners
     apiKeyInput.addEventListener('input', handleApiKeyChange);
     generateBtn.addEventListener('click', handleGenerate);
+    createNewBtn.addEventListener('click', handleCreateNew);
     storyPromptInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && e.ctrlKey) {
             handleGenerate();
         }
     });
+
+    // Swipe navigation for carousel
+    setupSwipeNavigation();
 }
 
 // Handle API key input change
@@ -63,15 +75,22 @@ async function handleGenerate() {
         return;
     }
 
+    // Hide input section and show output section
+    inputSection.classList.add('hidden');
+    outputSection.classList.remove('hidden');
+    
     // Reset state
     state.isGenerating = true;
     state.currentScene = 0;
+    state.currentCardIndex = 0;
     state.images = [null, null, null, null];
     state.captions = [null, null, null, null];
     
     // Clear previous cards
-    storyGrid.innerHTML = '';
+    storyCarousel.innerHTML = '';
+    carouselDots.innerHTML = '';
     state.cards = [];
+    createNewBtn.classList.add('hidden');
 
     // Update UI
     updateButtonState();
@@ -84,10 +103,14 @@ async function handleGenerate() {
     try {
         for (let i = 0; i < 4; i++) {
             state.currentScene = i;
-            updateButtonState();
+            state.currentCardIndex = i;
             
             // Show loading card for current scene
             showLoadingCard(i);
+            
+            // Scroll to current card
+            scrollToCard(i);
+            updateDots();
             
             const imageData = await generateImage(scenePrompts[i]);
             if (imageData) {
@@ -98,17 +121,44 @@ async function handleGenerate() {
                 throw new Error(`Failed to generate scene ${i + 1}`);
             }
         }
+        
+        // All scenes complete - show "Create New Story" button
+        createNewBtn.classList.remove('hidden');
     } catch (error) {
         showError(error.message || 'Failed to generate story. Please try again.');
         // Remove loading card if error occurred
         if (state.cards[state.currentScene]) {
             state.cards[state.currentScene].remove();
         }
+        // Show input section again on error
+        inputSection.classList.remove('hidden');
+        outputSection.classList.add('hidden');
     } finally {
         state.isGenerating = false;
         state.currentScene = 0;
         updateButtonState();
     }
+}
+
+// Handle "Create New Story" button click
+function handleCreateNew() {
+    // Clear story prompt (keep API key)
+    storyPromptInput.value = '';
+    
+    // Hide output section and show input section
+    outputSection.classList.add('hidden');
+    inputSection.classList.remove('hidden');
+    
+    // Clear carousel
+    storyCarousel.innerHTML = '';
+    carouselDots.innerHTML = '';
+    state.cards = [];
+    state.images = [null, null, null, null];
+    state.captions = [null, null, null, null];
+    state.currentCardIndex = 0;
+    
+    // Focus on prompt input
+    storyPromptInput.focus();
 }
 
 // Generate scene prompts from user prompt
@@ -195,11 +245,11 @@ async function generateImage(prompt) {
 // Show loading card for a scene
 function showLoadingCard(index) {
     const card = document.createElement('div');
-    card.className = 'flex flex-col gap-2';
+    card.className = 'flex flex-col gap-2 flex-shrink-0 w-[85vw] max-w-[500px] snap-center';
     card.innerHTML = `
         <div class="w-full aspect-square rounded-xl overflow-hidden bg-[#e5e5e5] relative animate-pulse">
             <div class="absolute inset-0 flex items-center justify-center">
-                <p class="text-sm text-[#737373] font-medium">Generating Scene ${index + 1}...</p>
+                <p class="text-sm text-blue-400 font-medium">Generating Scene ${index + 1}...</p>
             </div>
         </div>
         <div class="flex flex-col gap-1">
@@ -208,8 +258,9 @@ function showLoadingCard(index) {
             <div class="h-4 w-3/4 bg-[#e5e5e5] rounded animate-pulse"></div>
         </div>
     `;
-    storyGrid.appendChild(card);
+    storyCarousel.appendChild(card);
     state.cards[index] = card;
+    updateDots();
 }
 
 // Update scene card with image and caption
@@ -226,17 +277,141 @@ function updateSceneCard(index, imageData, caption) {
             <p class="text-sm text-[#171717] leading-relaxed">${caption}</p>
         </div>
     `;
+    // Ensure card maintains its width class
+    card.className = 'flex flex-col gap-2 flex-shrink-0 w-[85vw] max-w-[500px] snap-center';
+}
+
+// Scroll carousel to specific card
+function scrollToCard(index) {
+    if (!state.cards[index]) return;
+    
+    const card = state.cards[index];
+    const container = carouselContainer;
+    
+    // Calculate scroll position to center the card
+    const cardLeft = card.offsetLeft;
+    const cardWidth = card.offsetWidth;
+    const containerWidth = container.offsetWidth;
+    const scrollPosition = cardLeft - (containerWidth / 2) + (cardWidth / 2);
+    
+    container.scrollTo({
+        left: Math.max(0, scrollPosition),
+        behavior: 'smooth'
+    });
+    
+    state.currentCardIndex = index;
+    updateDots();
+}
+
+// Update navigation dots
+function updateDots() {
+    carouselDots.innerHTML = '';
+    for (let i = 0; i < state.cards.length; i++) {
+        const dot = document.createElement('button');
+        dot.className = `w-2 h-2 rounded-full transition-all ${
+            i === state.currentCardIndex 
+                ? 'bg-blue-500 w-6' 
+                : 'bg-[#e5e5e5] hover:bg-[#d4d4d4]'
+        }`;
+        dot.addEventListener('click', () => {
+            scrollToCard(i);
+        });
+        carouselDots.appendChild(dot);
+    }
+}
+
+// Setup swipe navigation for carousel
+function setupSwipeNavigation() {
+    carouselContainer.addEventListener('touchstart', (e) => {
+        state.touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    carouselContainer.addEventListener('touchend', (e) => {
+        state.touchEndX = e.changedTouches[0].screenX;
+        handleSwipe();
+    }, { passive: true });
+
+    // Also handle mouse drag
+    let isDragging = false;
+    let startX = 0;
+    let scrollLeft = 0;
+
+    carouselContainer.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        startX = e.pageX - carouselContainer.offsetLeft;
+        scrollLeft = carouselContainer.scrollLeft;
+        carouselContainer.style.cursor = 'grabbing';
+    });
+
+    carouselContainer.addEventListener('mouseleave', () => {
+        isDragging = false;
+        carouselContainer.style.cursor = 'grab';
+    });
+
+    carouselContainer.addEventListener('mouseup', () => {
+        isDragging = false;
+        carouselContainer.style.cursor = 'grab';
+    });
+
+    carouselContainer.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+        const x = e.pageX - carouselContainer.offsetLeft;
+        const walk = (x - startX) * 2;
+        carouselContainer.scrollLeft = scrollLeft - walk;
+    });
+
+    // Update current card index on scroll
+    carouselContainer.addEventListener('scroll', () => {
+        updateCurrentCardFromScroll();
+    });
+}
+
+// Handle swipe gesture
+function handleSwipe() {
+    const swipeThreshold = 50;
+    const diff = state.touchStartX - state.touchEndX;
+    
+    if (Math.abs(diff) > swipeThreshold) {
+        if (diff > 0 && state.currentCardIndex < state.cards.length - 1) {
+            // Swipe left - next card
+            scrollToCard(state.currentCardIndex + 1);
+        } else if (diff < 0 && state.currentCardIndex > 0) {
+            // Swipe right - previous card
+            scrollToCard(state.currentCardIndex - 1);
+        }
+    }
+}
+
+// Update current card index based on scroll position
+function updateCurrentCardFromScroll() {
+    if (state.cards.length === 0) return;
+    
+    const container = carouselContainer;
+    const scrollPosition = container.scrollLeft + container.offsetWidth / 2;
+    
+    let closestCard = 0;
+    let closestDistance = Infinity;
+    
+    state.cards.forEach((card, index) => {
+        const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+        const distance = Math.abs(scrollPosition - cardCenter);
+        
+        if (distance < closestDistance) {
+            closestDistance = distance;
+            closestCard = index;
+        }
+    });
+    
+    if (closestCard !== state.currentCardIndex) {
+        state.currentCardIndex = closestCard;
+        updateDots();
+    }
 }
 
 // Update button state
 function updateButtonState() {
-    if (state.isGenerating) {
-        generateBtn.disabled = true;
-        generateBtn.textContent = `Generating... (${state.currentScene + 1}/4)`;
-    } else {
-        generateBtn.disabled = false;
-        generateBtn.textContent = 'Generate Story';
-    }
+    // Button is hidden during generation, so no need to update
 }
 
 // Show error message
