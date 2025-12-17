@@ -75,9 +75,8 @@ async function handleGenerate() {
         return;
     }
 
-    // Hide input section and show output section
-    inputSection.classList.add('hidden');
-    outputSection.classList.remove('hidden');
+    // Animate section transition
+    animateSectionTransition(inputSection, outputSection, 'out', 'in');
     
     // Reset state
     state.isGenerating = true;
@@ -122,8 +121,19 @@ async function handleGenerate() {
             }
         }
         
-        // All scenes complete - show "Create New Story" button
+        // All scenes complete - show "Create New Story" button with animation
         createNewBtn.classList.remove('hidden');
+        createNewBtn.style.opacity = '0';
+        createNewBtn.style.transform = 'translateY(10px)';
+        requestAnimationFrame(() => {
+            Motion.animate(createNewBtn, {
+                opacity: [0, 1],
+                y: [10, 0]
+            }, {
+                duration: 0.3,
+                easing: [0.16, 1, 0.3, 1]
+            });
+        });
     } catch (error) {
         showError(error.message || 'Failed to generate story. Please try again.');
         // Remove loading card if error occurred
@@ -131,8 +141,7 @@ async function handleGenerate() {
             state.cards[state.currentScene].remove();
         }
         // Show input section again on error
-        inputSection.classList.remove('hidden');
-        outputSection.classList.add('hidden');
+        animateSectionTransition(outputSection, inputSection, 'out', 'in');
     } finally {
         state.isGenerating = false;
         state.currentScene = 0;
@@ -145,9 +154,8 @@ function handleCreateNew() {
     // Clear story prompt (keep API key)
     storyPromptInput.value = '';
     
-    // Hide output section and show input section
-    outputSection.classList.add('hidden');
-    inputSection.classList.remove('hidden');
+    // Animate section transition
+    animateSectionTransition(outputSection, inputSection, 'out', 'in');
     
     // Clear carousel
     storyCarousel.innerHTML = '';
@@ -247,19 +255,44 @@ function showLoadingCard(index) {
     const card = document.createElement('div');
     card.className = 'flex flex-col gap-2 flex-shrink-0 w-[75vw] max-w-[350px] snap-center';
     card.innerHTML = `
-        <div class="w-full aspect-square rounded-xl overflow-hidden bg-[#e5e5e5] relative animate-pulse">
+        <div class="w-full aspect-square rounded-xl overflow-hidden bg-[#e5e5e5] relative" id="loading-image-${index}">
             <div class="absolute inset-0 flex items-center justify-center">
                 <p class="text-sm text-blue-400 font-medium">Generating Scene ${index + 1}...</p>
             </div>
         </div>
         <div class="flex flex-col gap-1">
-            <div class="h-3 w-16 bg-[#e5e5e5] rounded animate-pulse"></div>
-            <div class="h-4 w-full bg-[#e5e5e5] rounded animate-pulse"></div>
-            <div class="h-4 w-3/4 bg-[#e5e5e5] rounded animate-pulse"></div>
+            <div class="h-3 w-16 bg-[#e5e5e5] rounded" id="loading-skeleton-1-${index}"></div>
+            <div class="h-4 w-full bg-[#e5e5e5] rounded" id="loading-skeleton-2-${index}"></div>
+            <div class="h-4 w-3/4 bg-[#e5e5e5] rounded" id="loading-skeleton-3-${index}"></div>
         </div>
     `;
     storyCarousel.appendChild(card);
     state.cards[index] = card;
+    
+    // Animate card entrance
+    Motion.animate(card, {
+        opacity: [0, 1],
+        y: [20, 0],
+        scale: [0.95, 1]
+    }, {
+        duration: 0.35,
+        easing: [0.16, 1, 0.3, 1] // ease-out-cubic
+    });
+    
+    // Animate loading pulse
+    const loadingImage = document.getElementById(`loading-image-${index}`);
+    const skeleton1 = document.getElementById(`loading-skeleton-1-${index}`);
+    const skeleton2 = document.getElementById(`loading-skeleton-2-${index}`);
+    const skeleton3 = document.getElementById(`loading-skeleton-3-${index}`);
+    
+    Motion.animate([loadingImage, skeleton1, skeleton2, skeleton3], {
+        opacity: [0.5, 1, 0.5]
+    }, {
+        duration: 1.5,
+        repeat: Infinity,
+        ease: 'easeInOut'
+    });
+    
     updateDots();
     
     // Center the card after it's added to DOM
@@ -273,17 +306,40 @@ function updateSceneCard(index, imageData, caption) {
     if (!state.cards[index]) return;
     
     const card = state.cards[index];
-    card.innerHTML = `
-        <div class="w-full aspect-square rounded-xl overflow-hidden bg-[#e5e5e5]">
-            <img src="${imageData}" alt="Scene ${index + 1}" class="w-full h-full object-cover" />
-        </div>
-        <div class="flex flex-col gap-1">
-            <div class="text-xs font-medium text-[#737373] uppercase tracking-wide">SCENE ${index + 1}</div>
-            <p class="text-sm text-[#171717] leading-relaxed">${caption}</p>
-        </div>
+    const imageContainer = document.createElement('div');
+    imageContainer.className = 'w-full aspect-square rounded-xl overflow-hidden bg-[#e5e5e5]';
+    const img = document.createElement('img');
+    img.src = imageData;
+    img.alt = `Scene ${index + 1}`;
+    img.className = 'w-full h-full object-cover';
+    img.style.opacity = '0';
+    
+    imageContainer.appendChild(img);
+    
+    card.innerHTML = '';
+    card.appendChild(imageContainer);
+    
+    const captionDiv = document.createElement('div');
+    captionDiv.className = 'flex flex-col gap-1';
+    captionDiv.innerHTML = `
+        <div class="text-xs font-medium text-[#737373] uppercase tracking-wide">SCENE ${index + 1}</div>
+        <p class="text-sm text-[#171717] leading-relaxed">${caption}</p>
     `;
+    card.appendChild(captionDiv);
+    
     // Ensure card maintains its width class
     card.className = 'flex flex-col gap-2 flex-shrink-0 w-[75vw] max-w-[350px] snap-center';
+    
+    // Animate image reveal
+    img.onload = () => {
+        Motion.animate(img, {
+            opacity: [0, 1],
+            scale: [0.98, 1]
+        }, {
+            duration: 0.25,
+            easing: [0.16, 1, 0.3, 1]
+        });
+    };
 }
 
 // Scroll carousel to specific card
@@ -308,11 +364,23 @@ function scrollToCard(index) {
     // Calculate center position
     const containerCenter = containerRect.width / 2;
     const cardCenter = cardRect.width / 2;
-    const scrollPosition = cardAbsoluteLeft - containerCenter + cardCenter;
+    const targetScroll = cardAbsoluteLeft - containerCenter + cardCenter;
     
-    container.scrollTo({
-        left: Math.max(0, scrollPosition),
-        behavior: 'smooth'
+    // Use Motion for spring-based scroll animation
+    const startScroll = container.scrollLeft;
+    const scrollDistance = targetScroll - startScroll;
+    
+    // Create a temporary element to animate scroll value
+    const scrollProxy = { value: startScroll };
+    
+    Motion.animate(scrollProxy, {
+        value: targetScroll
+    }, {
+        duration: 0.6,
+        easing: [0.34, 1.56, 0.64, 1], // spring-like
+        onUpdate: (latest) => {
+            container.scrollLeft = latest.value;
+        }
     });
     
     state.currentCardIndex = index;
@@ -321,14 +389,53 @@ function scrollToCard(index) {
 
 // Update navigation dots
 function updateDots() {
+    const previousDots = Array.from(carouselDots.children);
+    const previousActiveIndex = previousDots.findIndex(dot => 
+        dot.style.width === '24px' || dot.classList.contains('active')
+    );
+    
     carouselDots.innerHTML = '';
     for (let i = 0; i < state.cards.length; i++) {
         const dot = document.createElement('button');
-        dot.className = `w-2 h-2 rounded-full transition-all ${
-            i === state.currentCardIndex 
-                ? 'bg-blue-500 w-6' 
+        const isActive = i === state.currentCardIndex;
+        dot.className = `rounded-full ${
+            isActive 
+                ? 'bg-blue-500 active' 
                 : 'bg-[#e5e5e5] hover:bg-[#d4d4d4]'
         }`;
+        
+        // Set initial state
+        const targetWidth = isActive ? 24 : 8;
+        dot.style.width = `${targetWidth}px`;
+        dot.style.height = '8px';
+        
+        // If transitioning from previous state, animate
+        if (previousActiveIndex !== -1 && previousActiveIndex !== state.currentCardIndex) {
+            if (i === previousActiveIndex) {
+                // Was active, now inactive
+                dot.style.width = '24px';
+                requestAnimationFrame(() => {
+                    Motion.animate(dot, {
+                        width: [24, 8]
+                    }, {
+                        duration: 0.2,
+                        easing: [0.16, 1, 0.3, 1]
+                    });
+                });
+            } else if (isActive) {
+                // Becomes active
+                dot.style.width = '8px';
+                requestAnimationFrame(() => {
+                    Motion.animate(dot, {
+                        width: [8, 24]
+                    }, {
+                        duration: 0.2,
+                        easing: [0.16, 1, 0.3, 1]
+                    });
+                });
+            }
+        }
+        
         dot.addEventListener('click', () => {
             scrollToCard(i);
         });
@@ -598,10 +705,111 @@ function clearError() {
     errorMessage.classList.add('hidden');
 }
 
+// Animate section transitions
+function animateSectionTransition(hideSection, showSection, hideDirection, showDirection) {
+    // Hide section with animation
+    if (!hideSection.classList.contains('hidden')) {
+        Motion.animate(hideSection, {
+            opacity: [1, 0],
+            y: [0, -20]
+        }, {
+            duration: 0.3,
+            easing: [0.4, 0, 1, 1], // ease-in
+            onComplete: () => {
+                hideSection.classList.add('hidden');
+            }
+        });
+    } else {
+        hideSection.classList.add('hidden');
+    }
+    
+    // Show section with animation
+    showSection.classList.remove('hidden');
+    showSection.style.opacity = '0';
+    showSection.style.transform = 'translateY(20px)';
+    
+    requestAnimationFrame(() => {
+        Motion.animate(showSection, {
+            opacity: [0, 1],
+            y: [20, 0]
+        }, {
+            duration: 0.35,
+            easing: [0.16, 1, 0.3, 1], // ease-out
+            onComplete: () => {
+                showSection.style.opacity = '';
+                showSection.style.transform = '';
+            }
+        });
+    });
+}
+
+// Add button press animations
+function setupButtonAnimations() {
+    // Generate button
+    generateBtn.addEventListener('mousedown', () => {
+        Motion.animate(generateBtn, {
+            scale: 0.98
+        }, {
+            duration: 0.1,
+            easing: [0.4, 0, 1, 1]
+        });
+    });
+    
+    generateBtn.addEventListener('mouseup', () => {
+        Motion.animate(generateBtn, {
+            scale: 1
+        }, {
+            duration: 0.2,
+            easing: [0.16, 1, 0.3, 1]
+        });
+    });
+    
+    generateBtn.addEventListener('mouseleave', () => {
+        Motion.animate(generateBtn, {
+            scale: 1
+        }, {
+            duration: 0.2,
+            easing: [0.16, 1, 0.3, 1]
+        });
+    });
+    
+    // Create New Story button
+    createNewBtn.addEventListener('mousedown', () => {
+        Motion.animate(createNewBtn, {
+            scale: 0.98
+        }, {
+            duration: 0.1,
+            easing: [0.4, 0, 1, 1]
+        });
+    });
+    
+    createNewBtn.addEventListener('mouseup', () => {
+        Motion.animate(createNewBtn, {
+            scale: 1
+        }, {
+            duration: 0.2,
+            easing: [0.16, 1, 0.3, 1]
+        });
+    });
+    
+    createNewBtn.addEventListener('mouseleave', () => {
+        Motion.animate(createNewBtn, {
+            scale: 1
+        }, {
+            duration: 0.2,
+            easing: [0.16, 1, 0.3, 1]
+        });
+    });
+}
+
 // Initialize app when DOM is ready
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', () => {
+        init();
+        setupButtonAnimations();
+    });
 } else {
     init();
+    setupButtonAnimations();
 }
 
