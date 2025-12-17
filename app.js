@@ -122,16 +122,17 @@ async function handleGenerate() {
         }
         
         // All scenes complete - show "Create New Story" button with animation
+        const { animate } = Motion;
         createNewBtn.classList.remove('hidden');
         createNewBtn.style.opacity = '0';
         createNewBtn.style.transform = 'translateY(10px)';
         requestAnimationFrame(() => {
-            Motion.animate(createNewBtn, {
+            animate(createNewBtn, {
                 opacity: [0, 1],
                 y: [10, 0]
             }, {
                 duration: 0.3,
-                easing: [0.16, 1, 0.3, 1]
+                ease: "easeOut"
             });
         });
     } catch (error) {
@@ -269,14 +270,15 @@ function showLoadingCard(index) {
     storyCarousel.appendChild(card);
     state.cards[index] = card;
     
-    // Animate card entrance
-    Motion.animate(card, {
+    // Animate card entrance using Motion API
+    const { animate } = Motion;
+    animate(card, {
         opacity: [0, 1],
         y: [20, 0],
         scale: [0.95, 1]
     }, {
         duration: 0.35,
-        easing: [0.16, 1, 0.3, 1] // ease-out-cubic
+        ease: "easeOut"
     });
     
     // Animate loading pulse
@@ -285,12 +287,12 @@ function showLoadingCard(index) {
     const skeleton2 = document.getElementById(`loading-skeleton-2-${index}`);
     const skeleton3 = document.getElementById(`loading-skeleton-3-${index}`);
     
-    Motion.animate([loadingImage, skeleton1, skeleton2, skeleton3], {
+    animate([loadingImage, skeleton1, skeleton2, skeleton3], {
         opacity: [0.5, 1, 0.5]
     }, {
         duration: 1.5,
         repeat: Infinity,
-        ease: 'easeInOut'
+        ease: "easeInOut"
     });
     
     updateDots();
@@ -331,13 +333,14 @@ function updateSceneCard(index, imageData, caption) {
     card.className = 'flex flex-col gap-2 flex-shrink-0 w-[75vw] max-w-[350px] snap-center';
     
     // Animate image reveal
+    const { animate } = Motion;
     img.onload = () => {
-        Motion.animate(img, {
+        animate(img, {
             opacity: [0, 1],
             scale: [0.98, 1]
         }, {
             duration: 0.25,
-            easing: [0.16, 1, 0.3, 1]
+            ease: "easeOut"
         });
     };
 }
@@ -367,17 +370,19 @@ function scrollToCard(index) {
     const targetScroll = cardAbsoluteLeft - containerCenter + cardCenter;
     
     // Use Motion for spring-based scroll animation
+    const { animate } = Motion;
     const startScroll = container.scrollLeft;
     const scrollDistance = targetScroll - startScroll;
     
-    // Create a temporary element to animate scroll value
+    // Create a temporary object to animate scroll value
     const scrollProxy = { value: startScroll };
     
-    Motion.animate(scrollProxy, {
+    animate(scrollProxy, {
         value: targetScroll
     }, {
-        duration: 0.6,
-        easing: [0.34, 1.56, 0.64, 1], // spring-like
+        type: "spring",
+        stiffness: 300,
+        damping: 30,
         onUpdate: (latest) => {
             container.scrollLeft = latest.value;
         }
@@ -411,26 +416,27 @@ function updateDots() {
         
         // If transitioning from previous state, animate
         if (previousActiveIndex !== -1 && previousActiveIndex !== state.currentCardIndex) {
+            const { animate } = Motion;
             if (i === previousActiveIndex) {
                 // Was active, now inactive
                 dot.style.width = '24px';
                 requestAnimationFrame(() => {
-                    Motion.animate(dot, {
+                    animate(dot, {
                         width: [24, 8]
                     }, {
                         duration: 0.2,
-                        easing: [0.16, 1, 0.3, 1]
+                        ease: "easeOut"
                     });
                 });
             } else if (isActive) {
                 // Becomes active
                 dot.style.width = '8px';
                 requestAnimationFrame(() => {
-                    Motion.animate(dot, {
+                    animate(dot, {
                         width: [8, 24]
                     }, {
                         duration: 0.2,
-                        easing: [0.16, 1, 0.3, 1]
+                        ease: "easeOut"
                     });
                 });
             }
@@ -707,14 +713,16 @@ function clearError() {
 
 // Animate section transitions
 function animateSectionTransition(hideSection, showSection, hideDirection, showDirection) {
+    const { animate } = Motion;
+    
     // Hide section with animation
     if (!hideSection.classList.contains('hidden')) {
-        Motion.animate(hideSection, {
+        animate(hideSection, {
             opacity: [1, 0],
             y: [0, -20]
         }, {
             duration: 0.3,
-            easing: [0.4, 0, 1, 1], // ease-in
+            ease: "easeIn",
             onComplete: () => {
                 hideSection.classList.add('hidden');
             }
@@ -729,12 +737,12 @@ function animateSectionTransition(hideSection, showSection, hideDirection, showD
     showSection.style.transform = 'translateY(20px)';
     
     requestAnimationFrame(() => {
-        Motion.animate(showSection, {
+        animate(showSection, {
             opacity: [0, 1],
             y: [20, 0]
         }, {
             duration: 0.35,
-            easing: [0.16, 1, 0.3, 1], // ease-out
+            ease: "easeOut",
             onComplete: () => {
                 showSection.style.opacity = '';
                 showSection.style.transform = '';
@@ -745,59 +753,61 @@ function animateSectionTransition(hideSection, showSection, hideDirection, showD
 
 // Add button press animations
 function setupButtonAnimations() {
+    const { animate } = Motion;
+    
     // Generate button
     generateBtn.addEventListener('mousedown', () => {
-        Motion.animate(generateBtn, {
+        animate(generateBtn, {
             scale: 0.98
         }, {
             duration: 0.1,
-            easing: [0.4, 0, 1, 1]
+            ease: "easeIn"
         });
     });
     
     generateBtn.addEventListener('mouseup', () => {
-        Motion.animate(generateBtn, {
+        animate(generateBtn, {
             scale: 1
         }, {
             duration: 0.2,
-            easing: [0.16, 1, 0.3, 1]
+            ease: "easeOut"
         });
     });
     
     generateBtn.addEventListener('mouseleave', () => {
-        Motion.animate(generateBtn, {
+        animate(generateBtn, {
             scale: 1
         }, {
             duration: 0.2,
-            easing: [0.16, 1, 0.3, 1]
+            ease: "easeOut"
         });
     });
     
     // Create New Story button
     createNewBtn.addEventListener('mousedown', () => {
-        Motion.animate(createNewBtn, {
+        animate(createNewBtn, {
             scale: 0.98
         }, {
             duration: 0.1,
-            easing: [0.4, 0, 1, 1]
+            ease: "easeIn"
         });
     });
     
     createNewBtn.addEventListener('mouseup', () => {
-        Motion.animate(createNewBtn, {
+        animate(createNewBtn, {
             scale: 1
         }, {
             duration: 0.2,
-            easing: [0.16, 1, 0.3, 1]
+            ease: "easeOut"
         });
     });
     
     createNewBtn.addEventListener('mouseleave', () => {
-        Motion.animate(createNewBtn, {
+        animate(createNewBtn, {
             scale: 1
         }, {
             duration: 0.2,
-            easing: [0.16, 1, 0.3, 1]
+            ease: "easeOut"
         });
     });
 }
