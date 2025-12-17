@@ -245,7 +245,7 @@ async function generateImage(prompt) {
 // Show loading card for a scene
 function showLoadingCard(index) {
     const card = document.createElement('div');
-    card.className = 'flex flex-col gap-2 flex-shrink-0 w-[85vw] max-w-[500px] snap-center';
+    card.className = 'flex flex-col gap-2 flex-shrink-0 w-[75vw] max-w-[350px] snap-center';
     card.innerHTML = `
         <div class="w-full aspect-square rounded-xl overflow-hidden bg-[#e5e5e5] relative animate-pulse">
             <div class="absolute inset-0 flex items-center justify-center">
@@ -261,6 +261,11 @@ function showLoadingCard(index) {
     storyCarousel.appendChild(card);
     state.cards[index] = card;
     updateDots();
+    
+    // Center the card after it's added to DOM
+    requestAnimationFrame(() => {
+        scrollToCard(index);
+    });
 }
 
 // Update scene card with image and caption
@@ -278,7 +283,7 @@ function updateSceneCard(index, imageData, caption) {
         </div>
     `;
     // Ensure card maintains its width class
-    card.className = 'flex flex-col gap-2 flex-shrink-0 w-[85vw] max-w-[500px] snap-center';
+    card.className = 'flex flex-col gap-2 flex-shrink-0 w-[75vw] max-w-[350px] snap-center';
 }
 
 // Scroll carousel to specific card
@@ -287,12 +292,23 @@ function scrollToCard(index) {
     
     const card = state.cards[index];
     const container = carouselContainer;
+    const carousel = storyCarousel;
+    
+    // Use getBoundingClientRect for accurate positioning
+    const containerRect = container.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+    const carouselRect = carousel.getBoundingClientRect();
     
     // Calculate scroll position to center the card
-    const cardLeft = card.offsetLeft;
-    const cardWidth = card.offsetWidth;
-    const containerWidth = container.offsetWidth;
-    const scrollPosition = cardLeft - (containerWidth / 2) + (cardWidth / 2);
+    // Get card position relative to carousel
+    const cardLeftRelativeToCarousel = cardRect.left - carouselRect.left;
+    // Add current scroll to get absolute position
+    const cardAbsoluteLeft = cardLeftRelativeToCarousel + container.scrollLeft;
+    
+    // Calculate center position
+    const containerCenter = containerRect.width / 2;
+    const cardCenter = cardRect.width / 2;
+    const scrollPosition = cardAbsoluteLeft - containerCenter + cardCenter;
     
     container.scrollTo({
         left: Math.max(0, scrollPosition),
@@ -322,65 +338,148 @@ function updateDots() {
 
 // Setup swipe navigation for carousel
 function setupSwipeNavigation() {
-    carouselContainer.addEventListener('touchstart', (e) => {
-        state.touchStartX = e.changedTouches[0].screenX;
-    }, { passive: true });
-
-    carouselContainer.addEventListener('touchend', (e) => {
-        state.touchEndX = e.changedTouches[0].screenX;
-        handleSwipe();
-    }, { passive: true });
-
-    // Also handle mouse drag
     let isDragging = false;
     let startX = 0;
     let scrollLeft = 0;
+    let velocity = 0;
+    let lastX = 0;
+    let lastTime = 0;
 
+    // Touch events
+    carouselContainer.addEventListener('touchstart', (e) => {
+        state.touchStartX = e.changedTouches[0].screenX;
+        isDragging = true;
+        startX = e.changedTouches[0].screenX;
+        scrollLeft = carouselContainer.scrollLeft;
+        lastX = e.changedTouches[0].screenX;
+        lastTime = Date.now();
+    }, { passive: true });
+
+    carouselContainer.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        const currentX = e.changedTouches[0].screenX;
+        const currentTime = Date.now();
+        const deltaX = currentX - lastX;
+        const deltaTime = currentTime - lastTime;
+        
+        if (deltaTime > 0) {
+            velocity = deltaX / deltaTime;
+        }
+        
+        const walk = currentX - startX;
+        carouselContainer.scrollLeft = scrollLeft - walk;
+        
+        lastX = currentX;
+        lastTime = currentTime;
+    }, { passive: true });
+
+    carouselContainer.addEventListener('touchend', (e) => {
+        if (!isDragging) return;
+        state.touchEndX = e.changedTouches[0].screenX;
+        isDragging = false;
+        
+        // Snap to nearest card
+        snapToNearestCard();
+    }, { passive: true });
+
+    // Mouse drag events
     carouselContainer.addEventListener('mousedown', (e) => {
         isDragging = true;
-        startX = e.pageX - carouselContainer.offsetLeft;
+        startX = e.pageX;
         scrollLeft = carouselContainer.scrollLeft;
+        lastX = e.pageX;
+        lastTime = Date.now();
         carouselContainer.style.cursor = 'grabbing';
+        carouselContainer.style.scrollBehavior = 'auto'; // Disable smooth scroll during drag
     });
 
     carouselContainer.addEventListener('mouseleave', () => {
-        isDragging = false;
-        carouselContainer.style.cursor = 'grab';
+        if (isDragging) {
+            isDragging = false;
+            carouselContainer.style.cursor = 'grab';
+            carouselContainer.style.scrollBehavior = 'smooth';
+            snapToNearestCard();
+        }
     });
 
     carouselContainer.addEventListener('mouseup', () => {
-        isDragging = false;
-        carouselContainer.style.cursor = 'grab';
+        if (isDragging) {
+            isDragging = false;
+            carouselContainer.style.cursor = 'grab';
+            carouselContainer.style.scrollBehavior = 'smooth';
+            snapToNearestCard();
+        }
     });
 
     carouselContainer.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
         e.preventDefault();
-        const x = e.pageX - carouselContainer.offsetLeft;
-        const walk = (x - startX) * 2;
+        
+        const currentX = e.pageX;
+        const currentTime = Date.now();
+        const deltaX = currentX - lastX;
+        const deltaTime = currentTime - lastTime;
+        
+        if (deltaTime > 0) {
+            velocity = deltaX / deltaTime;
+        }
+        
+        const walk = currentX - startX;
         carouselContainer.scrollLeft = scrollLeft - walk;
+        
+        lastX = currentX;
+        lastTime = currentTime;
     });
 
-    // Update current card index on scroll
+    // Update current card index on scroll (with debounce for performance)
+    let scrollTimeout;
     carouselContainer.addEventListener('scroll', () => {
-        updateCurrentCardFromScroll();
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(() => {
+            if (!isDragging) {
+                updateCurrentCardFromScroll();
+            }
+        }, 50);
     });
 }
 
-// Handle swipe gesture
-function handleSwipe() {
-    const swipeThreshold = 50;
-    const diff = state.touchStartX - state.touchEndX;
+// Snap to nearest card after drag/swipe
+function snapToNearestCard() {
+    if (state.cards.length === 0) return;
     
-    if (Math.abs(diff) > swipeThreshold) {
-        if (diff > 0 && state.currentCardIndex < state.cards.length - 1) {
-            // Swipe left - next card
-            scrollToCard(state.currentCardIndex + 1);
-        } else if (diff < 0 && state.currentCardIndex > 0) {
-            // Swipe right - previous card
-            scrollToCard(state.currentCardIndex - 1);
+    const container = carouselContainer;
+    const containerRect = container.getBoundingClientRect();
+    const scrollPosition = container.scrollLeft + containerRect.width / 2;
+    
+    let closestCard = 0;
+    let closestDistance = Infinity;
+    
+    state.cards.forEach((card, index) => {
+        const cardRect = card.getBoundingClientRect();
+        const carouselRect = storyCarousel.getBoundingClientRect();
+        
+        // Calculate card center relative to carousel, then add scroll
+        const cardLeftRelative = cardRect.left - carouselRect.left;
+        const cardAbsoluteLeft = cardLeftRelative + container.scrollLeft;
+        const cardWidth = cardRect.width;
+        const cardCenter = cardAbsoluteLeft + cardWidth / 2;
+        
+        const distance = Math.abs(scrollPosition - cardCenter);
+        
+        if (distance < closestDistance) {
+            closestDistance = distance;
+            closestCard = index;
         }
-    }
+    });
+    
+    // Scroll to the closest card
+    scrollToCard(closestCard);
+}
+
+// Handle swipe gesture (legacy - now handled in snapToNearestCard)
+function handleSwipe() {
+    // This function is no longer needed as snapToNearestCard handles it
+    snapToNearestCard();
 }
 
 // Update current card index based on scroll position
@@ -388,13 +487,22 @@ function updateCurrentCardFromScroll() {
     if (state.cards.length === 0) return;
     
     const container = carouselContainer;
-    const scrollPosition = container.scrollLeft + container.offsetWidth / 2;
+    const containerRect = container.getBoundingClientRect();
+    const scrollPosition = container.scrollLeft + containerRect.width / 2;
     
     let closestCard = 0;
     let closestDistance = Infinity;
     
     state.cards.forEach((card, index) => {
-        const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+        const cardRect = card.getBoundingClientRect();
+        const carouselRect = storyCarousel.getBoundingClientRect();
+        
+        // Calculate card center relative to carousel, then add scroll
+        const cardLeftRelative = cardRect.left - carouselRect.left;
+        const cardAbsoluteLeft = cardLeftRelative + container.scrollLeft;
+        const cardWidth = cardRect.width;
+        const cardCenter = cardAbsoluteLeft + cardWidth / 2;
+        
         const distance = Math.abs(scrollPosition - cardCenter);
         
         if (distance < closestDistance) {
