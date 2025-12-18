@@ -409,12 +409,13 @@ async function loadStoryIntoViewer(storyId) {
         const data = await response.json();
         const { story, scenes } = data;
 
+        console.log('Loading story:', story.id, 'with', scenes.length, 'scenes');
+
         // Mark as viewing saved story
         isViewingSavedStory = true;
         currentStoryPrompt = story.prompt;
 
-        // Reset state
-        resetGenerationState();
+        // Clear cards but don't reset images array yet
         clearCardStack();
 
         // Hide My Stories section, show output section
@@ -426,12 +427,22 @@ async function loadStoryIntoViewer(storyId) {
         navMyStories.classList.remove('active');
         navSettings.classList.remove('active');
 
+        // Reset state images/captions arrays
+        state.images = Array(SCENE_COUNT).fill(null);
+        state.captions = Array(SCENE_COUNT).fill(null);
+        state.videos = Array(SCENE_COUNT).fill(null);
+        state.cards = [];
+        state.currentCardIndex = 0;
+
         // Create cards for each scene
         scenes.forEach((scene, index) => {
             const imageUrl = scene.image_url || `/api/images/${scene.image_key}`;
+            console.log('Setting image', index, ':', imageUrl);
             setImage(index, imageUrl);
             setCaption(index, scene.caption);
         });
+
+        console.log('State images after loading:', state.images);
 
         // Show loading cards first, then update with images
         for (let i = 0; i < scenes.length; i++) {
@@ -827,9 +838,13 @@ async function handleMakeVideo() {
         return;
     }
 
-    // Check that all images exist
-    if (state.images.some(img => !img)) {
-        showError('Story images are not complete. Please wait for all scenes to generate.');
+    // Check that we have at least one image
+    const validImages = state.images.filter(img => img);
+    console.log('Make Video - images in state:', state.images);
+    console.log('Make Video - valid images count:', validImages.length);
+
+    if (validImages.length === 0) {
+        showError('No story images found. Please generate or load a story first.');
         return;
     }
 
