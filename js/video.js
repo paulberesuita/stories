@@ -1,38 +1,79 @@
-// Runway ML video generation API integration
+// Runway ML video generation API integration (via server-side proxy)
 
 import { CONFIG } from './config.js';
 import { state } from './state.js';
 
-// Generate a video from an image using Runway's image-to-video API
-export async function generateVideoFromImage(imageDataUrl, promptText = '') {
+// Convert relative URLs to absolute URLs for Runway API
+function toAbsoluteUrl(url) {
+    if (!url) return url;
+
+    // If it's already a data URL or absolute URL, return as-is
+    if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://')) {
+        return url;
+    }
+
+    // Convert relative URL to absolute
+    return `${window.location.origin}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+// Start a video generation task via our proxy
+async function startVideoTask(imageUrl, promptText = '') {
     if (!state.runwayKey) {
         throw new Error('Runway API key is required. Please add it in Settings.');
     }
 
-    // Start the video generation task
-    const response = await fetch(CONFIG.RUNWAY_API_URL, {
+    // Ensure we have an absolute URL
+    const absoluteImageUrl = toAbsoluteUrl(imageUrl);
+    console.log('Starting video generation for image:', absoluteImageUrl.substring(0, 100) + '...');
+
+    const response = await fetch('/api/video', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${state.runwayKey}`,
-            'X-Runway-Version': '2024-11-06'
+            'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            model: CONFIG.RUNWAY_MODEL,
-            promptImage: imageDataUrl,
+            action: 'start',
+            runwayKey: state.runwayKey,
+            imageUrl: absoluteImageUrl,
             promptText: promptText,
-            duration: CONFIG.RUNWAY_VIDEO_DURATION,
-            ratio: '1024:1024'
+            model: CONFIG.RUNWAY_MODEL,
+            duration: CONFIG.RUNWAY_VIDEO_DURATION
         })
     });
 
+    const data = await response.json();
+
     if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Runway API error: ${response.status}`);
+        console.error('Video task start error:', data);
+        throw new Error(data.error || `Failed to start video generation: ${response.status}`);
     }
 
-    const data = await response.json();
+    console.log('Video task started:', data.id);
     return data.id;
+}
+
+// Check task status via our proxy
+async function checkTaskStatus(taskId) {
+    const response = await fetch('/api/video', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            action: 'status',
+            runwayKey: state.runwayKey,
+            taskId: taskId
+        })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        console.error('Task status check error:', data);
+        throw new Error(data.error || `Failed to check task status: ${response.status}`);
+    }
+
+    return data;
 }
 
 // Poll for task completion and return the video URL
@@ -40,19 +81,12 @@ export async function waitForVideoTask(taskId, onProgress = null) {
     const maxAttempts = 120; // 6 minutes max (120 * 3s)
     let attempts = 0;
 
+    console.log('Waiting for video task:', taskId);
+
     while (attempts < maxAttempts) {
-        const response = await fetch(`${CONFIG.RUNWAY_TASK_URL}/${taskId}`, {
-            headers: {
-                'Authorization': `Bearer ${state.runwayKey}`,
-                'X-Runway-Version': '2024-11-06'
-            }
-        });
+        const task = await checkTaskStatus(taskId);
 
-        if (!response.ok) {
-            throw new Error(`Failed to check task status: ${response.status}`);
-        }
-
-        const task = await response.json();
+        console.log(`Task ${taskId} status:`, task.status, task.progress || 0);
 
         if (onProgress) {
             onProgress(task.status, task.progress || 0);
@@ -61,13 +95,15 @@ export async function waitForVideoTask(taskId, onProgress = null) {
         if (task.status === 'SUCCEEDED') {
             // Return the video URL from the output
             if (task.output && task.output.length > 0) {
+                console.log('Video generated:', task.output[0]);
                 return task.output[0];
             }
             throw new Error('Video generation succeeded but no output URL found');
         }
 
         if (task.status === 'FAILED') {
-            throw new Error(task.error || 'Video generation failed');
+            console.error('Video task failed:', task);
+            throw new Error(task.error || task.failure || 'Video generation failed');
         }
 
         // Wait before polling again
@@ -79,13 +115,13 @@ export async function waitForVideoTask(taskId, onProgress = null) {
 }
 
 // Generate video for a single scene (combines start task + polling)
-export async function generateSceneVideo(imageDataUrl, caption, onProgress = null) {
+export async function generateSceneVideo(imageUrl, caption, onProgress = null) {
     // Create a short prompt from the caption for video movement
     const videoPrompt = caption.length > 200
         ? caption.substring(0, 200) + '...'
         : caption;
 
-    const taskId = await generateVideoFromImage(imageDataUrl, videoPrompt);
+    const taskId = await startVideoTask(imageUrl, videoPrompt);
     const videoUrl = await waitForVideoTask(taskId, onProgress);
     return videoUrl;
 }
@@ -94,8 +130,15 @@ export async function generateSceneVideo(imageDataUrl, caption, onProgress = nul
 export async function generateAllSceneVideos(images, captions, onSceneProgress = null) {
     const videos = [];
 
+    console.log('Starting video generation for', images.length, 'scenes');
+
     for (let i = 0; i < images.length; i++) {
-        if (!images[i]) continue;
+        if (!images[i]) {
+            console.log('Skipping scene', i + 1, '- no image');
+            continue;
+        }
+
+        console.log('Generating video for scene', i + 1);
 
         if (onSceneProgress) {
             onSceneProgress(i, 'starting');
@@ -117,6 +160,7 @@ export async function generateAllSceneVideos(images, captions, onSceneProgress =
                 onSceneProgress(i, 'completed');
             }
         } catch (error) {
+            console.error('Video generation failed for scene', i + 1, ':', error);
             if (onSceneProgress) {
                 onSceneProgress(i, 'failed', 0, error.message);
             }
@@ -124,18 +168,14 @@ export async function generateAllSceneVideos(images, captions, onSceneProgress =
         }
     }
 
+    console.log('All videos generated:', videos);
     return videos;
 }
 
-// Concatenate video URLs into a single video using canvas/MediaRecorder
-// This is a client-side approach - for production, consider server-side FFmpeg
+// Concatenate video URLs into a single video
+// For MVP, returns the first video. Full concatenation requires server-side FFmpeg.
 export async function concatenateVideos(videoUrls) {
-    // For now, return the first video or implement basic concatenation
-    // Full video concatenation would require either:
-    // 1. Server-side FFmpeg processing
-    // 2. WebCodecs API (limited browser support)
-    // 3. MediaRecorder with canvas playback
-
-    // Return first video for MVP, can enhance later
-    return videoUrls.filter(url => url)[0];
+    const validVideos = videoUrls.filter(url => url);
+    console.log('Concatenating videos:', validVideos.length, 'videos');
+    return validVideos[0];
 }
