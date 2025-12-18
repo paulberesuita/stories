@@ -156,8 +156,9 @@ async function handleGenerate() {
         return;
     }
 
-    // Animate section transition
+    // Animate section transition and hide settings button
     animateSectionTransition(inputSection, outputSection);
+    settingsBtn.classList.add('hidden');
 
     // Reset state
     resetGenerationState();
@@ -234,6 +235,7 @@ async function handleGenerate() {
         showError(error.message || 'Failed to generate story. Please try again.');
         // Show input section again on error
         animateSectionTransition(outputSection, inputSection);
+        settingsBtn.classList.remove('hidden');
     } finally {
         setGenerating(false);
         setCurrentScene(0);
@@ -245,8 +247,9 @@ function handleCreateNew() {
     // Clear story prompt (keep API key)
     storyPromptInput.value = '';
 
-    // Animate section transition
+    // Animate section transition and show settings button
     animateSectionTransition(outputSection, inputSection);
+    settingsBtn.classList.remove('hidden');
 
     // Clear card stack
     clearCardStack();
