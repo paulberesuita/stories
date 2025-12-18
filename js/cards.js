@@ -54,7 +54,7 @@ export function showLoadingCard(index) {
     card.className = 'story-card w-[80vw] max-w-[300px] sm:max-w-[340px]';
     card.dataset.index = index;
     card.innerHTML = `
-        <div class="card-content w-full bg-white rounded-2xl p-3 shadow-[0_8px_30px_rgba(0,0,0,0.12)]">
+        <div class="card-content w-full bg-white rounded-2xl p-3">
             <div class="w-full aspect-square rounded-xl overflow-hidden bg-[#f0f0f0] relative" id="loading-image-${index}">
                 <div class="absolute inset-0 flex items-center justify-center">
                     <p class="text-sm text-[#a3a3a3] font-medium">Generating Scene ${index + 1}...</p>
@@ -121,7 +121,7 @@ export function updateSceneCard(index, imageData, caption) {
 
     const card = state.cards[index];
     const cardContent = document.createElement('div');
-    cardContent.className = 'card-content w-full bg-white rounded-2xl p-3 shadow-[0_8px_30px_rgba(0,0,0,0.12)]';
+    cardContent.className = 'card-content w-full bg-white rounded-2xl p-3';
 
     const imageContainer = document.createElement('div');
     imageContainer.className = 'w-full aspect-square rounded-xl overflow-hidden bg-[#f0f0f0]';
@@ -149,8 +149,8 @@ export function updateSceneCard(index, imageData, caption) {
         updateCaption();
     }
 
-    // Re-setup drag
-    setupCardDrag(card, index);
+    // Note: Don't re-setup drag - the card element is the same,
+    // so event listeners from showLoadingCard are still attached
 
     // Animate image reveal
     const { animate } = Motion;
