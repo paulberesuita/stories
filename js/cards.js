@@ -54,10 +54,10 @@ export function showLoadingCard(index) {
     card.className = 'story-card w-[85vw] max-w-[340px]';
     card.dataset.index = index;
     card.innerHTML = `
-        <div class="card-content w-full">
-            <div class="w-full aspect-square rounded-xl overflow-hidden bg-[#e5e5e5] relative shadow-[0_8px_30px_rgba(0,0,0,0.12)]" id="loading-image-${index}">
+        <div class="card-content w-full bg-white rounded-2xl p-3 shadow-[0_8px_30px_rgba(0,0,0,0.12)]">
+            <div class="w-full aspect-square rounded-xl overflow-hidden bg-[#f0f0f0] relative" id="loading-image-${index}">
                 <div class="absolute inset-0 flex items-center justify-center">
-                    <p class="text-sm text-blue-400 font-medium">Generating Scene ${index + 1}...</p>
+                    <p class="text-sm text-[#a3a3a3] font-medium">Generating Scene ${index + 1}...</p>
                 </div>
             </div>
         </div>
@@ -121,10 +121,10 @@ export function updateSceneCard(index, imageData, caption) {
 
     const card = state.cards[index];
     const cardContent = document.createElement('div');
-    cardContent.className = 'card-content w-full';
+    cardContent.className = 'card-content w-full bg-white rounded-2xl p-3 shadow-[0_8px_30px_rgba(0,0,0,0.12)]';
 
     const imageContainer = document.createElement('div');
-    imageContainer.className = 'w-full aspect-square rounded-xl overflow-hidden bg-[#e5e5e5] shadow-[0_8px_30px_rgba(0,0,0,0.12)]';
+    imageContainer.className = 'w-full aspect-square rounded-xl overflow-hidden bg-[#f0f0f0]';
     const img = document.createElement('img');
     img.src = imageData;
     img.alt = `Scene ${index + 1}`;
