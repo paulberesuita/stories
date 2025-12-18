@@ -3,13 +3,16 @@
 import { CONFIG } from './config.js';
 import { state } from './state.js';
 
+// Art style prefix for all image generations
+const ART_STYLE = 'In the style of a Disney Pixar animated movie, colorful and whimsical 3D cartoon style with expressive characters and vibrant lighting.';
+
 // Generate scene prompts from user prompt
 export function generateScenePrompts(userPrompt) {
     return [
-        `Scene 1 of 4 - The beginning: ${userPrompt}. Show the opening scene that introduces the setting and characters.`,
-        `Scene 2 of 4 - Rising action: ${userPrompt}. Show a development or challenge emerging.`,
-        `Scene 3 of 4 - Climax: ${userPrompt}. Show the peak moment of tension or action.`,
-        `Scene 4 of 4 - Resolution: ${userPrompt}. Show how the story concludes.`
+        `${ART_STYLE} Scene 1 of 4 - The beginning: ${userPrompt}. Show the opening scene that introduces the setting and characters.`,
+        `${ART_STYLE} Scene 2 of 4 - Rising action: ${userPrompt}. Show a development or challenge emerging.`,
+        `${ART_STYLE} Scene 3 of 4 - Climax: ${userPrompt}. Show the peak moment of tension or action.`,
+        `${ART_STYLE} Scene 4 of 4 - Resolution: ${userPrompt}. Show how the story concludes.`
     ];
 }
 
