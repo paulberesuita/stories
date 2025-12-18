@@ -873,11 +873,7 @@ async function handleMakeVideo() {
                 } else if (status === 'completed') {
                     videoProgressText.textContent = `Scene ${sceneIndex + 1} complete!`;
                 }
-
-                // Store video URL
-                if (status === 'completed' && videos && videos[sceneIndex]) {
-                    setVideo(sceneIndex, videos[sceneIndex]);
-                }
+                // Note: videos are stored after generateAllSceneVideos completes
             }
         );
 
