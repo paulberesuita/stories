@@ -3,6 +3,7 @@
 import { CONFIG } from './config.js';
 import { state, setCard, setCurrentCardIndex } from './state.js';
 import { setupCardDrag } from './drag.js';
+import { playSwipeSound } from './sounds.js';
 
 // DOM element references (set during initialization)
 let cardStackElement = null;
@@ -18,13 +19,30 @@ export function setCaptionElements(indicator, caption) {
     sceneCaptionElement = caption;
 }
 
-// Update the caption area below cards
+// Update the caption area below cards (and on-card caption)
 export function updateCaption() {
     if (!sceneIndicatorElement || !sceneCaptionElement) return;
 
     const currentCaption = state.captions[state.currentCardIndex];
     sceneIndicatorElement.textContent = `Scene ${state.currentCardIndex + 1} of ${state.cards.length}`;
     sceneCaptionElement.textContent = currentCaption || '';
+
+    // Also update on-card caption if it exists
+    const activeCard = state.cards[state.currentCardIndex];
+    if (activeCard) {
+        const cardCaption = activeCard.querySelector('.card-caption-text');
+        if (cardCaption && currentCaption) {
+            cardCaption.textContent = currentCaption;
+        }
+    }
+}
+
+// Clear the caption area (used when starting new generation)
+export function clearCaptionArea() {
+    if (!sceneIndicatorElement || !sceneCaptionElement) return;
+
+    sceneIndicatorElement.textContent = '';
+    sceneCaptionElement.textContent = '';
 }
 
 // Calculate card stack position values
@@ -40,10 +58,14 @@ function getStackPositionValues(index, currentCardIndex) {
         positionFromTop = index - currentCardIndex;
     }
 
-    const offsetDirection = positionFromTop % 2 === 0 ? -1 : 1;
-    const stackOffsetY = positionFromTop * CONFIG.CARD_OFFSET_Y;
-    const stackOffsetX = positionFromTop * CONFIG.CARD_OFFSET_X * offsetDirection;
-    const rotation = positionFromTop * CONFIG.CARD_ROTATION * offsetDirection;
+    // Alternate left/right for X offset
+    const xDirection = positionFromTop % 2 === 0 ? -1 : 1;
+    // Alternate up/down for Y offset (odd positions go up, even go down)
+    const yDirection = positionFromTop % 2 === 0 ? 1 : -1;
+
+    const stackOffsetX = positionFromTop * CONFIG.CARD_OFFSET_X * xDirection;
+    const stackOffsetY = positionFromTop * CONFIG.CARD_OFFSET_Y * yDirection;
+    const rotation = positionFromTop * CONFIG.CARD_ROTATION * xDirection;
 
     return { isActive, positionFromTop, stackOffsetX, stackOffsetY, rotation };
 }
@@ -51,7 +73,7 @@ function getStackPositionValues(index, currentCardIndex) {
 // Show loading card for a scene
 export function showLoadingCard(index) {
     const card = document.createElement('div');
-    card.className = 'story-card w-[80vw] max-w-[300px] sm:max-w-[340px]';
+    card.className = 'story-card w-[85vw] max-w-[340px] sm:max-w-[400px]';
     card.dataset.index = index;
     card.innerHTML = `
         <div class="card-content w-full bg-white rounded-2xl p-3">
@@ -115,7 +137,7 @@ export function showLoadingCard(index) {
     setupCardDrag(card, index);
 }
 
-// Update scene card with image (caption shown separately below stack)
+// Update scene card with image and comic-book style caption overlay
 export function updateSceneCard(index, imageData, caption) {
     if (!state.cards[index]) return;
 
@@ -124,21 +146,32 @@ export function updateSceneCard(index, imageData, caption) {
     cardContent.className = 'card-content w-full bg-white rounded-2xl p-3';
 
     const imageContainer = document.createElement('div');
-    imageContainer.className = 'w-full aspect-square rounded-xl overflow-hidden bg-[#f0f0f0]';
+    imageContainer.className = 'w-full aspect-square rounded-xl overflow-hidden bg-[#f0f0f0] relative';
+
     const img = document.createElement('img');
     img.src = imageData;
     img.alt = `Scene ${index + 1}`;
     img.className = 'w-full h-full object-cover';
     img.style.opacity = '0';
 
+    // Create comic-book style caption overlay
+    const captionOverlay = document.createElement('div');
+    captionOverlay.className = 'card-caption-overlay';
+
+    const captionText = document.createElement('p');
+    captionText.className = 'card-caption-text';
+    captionText.textContent = caption || '';
+
+    captionOverlay.appendChild(captionText);
     imageContainer.appendChild(img);
+    imageContainer.appendChild(captionOverlay);
     cardContent.appendChild(imageContainer);
 
     card.innerHTML = '';
     card.appendChild(cardContent);
 
     // Ensure card maintains its classes
-    card.className = 'story-card w-[80vw] max-w-[300px] sm:max-w-[340px]';
+    card.className = 'story-card w-[85vw] max-w-[340px] sm:max-w-[400px]';
     card.dataset.index = index;
 
     // Update stack position
@@ -189,6 +222,9 @@ export function updateCardStackPosition() {
 // Move current card to back and reveal next/previous (swipe to cycle)
 export function dismissCard(currentIndex, nextIndex, direction) {
     if (nextIndex < 0 || nextIndex >= state.cards.length) return;
+
+    // Play swipe sound
+    playSwipeSound();
 
     // Update current index first
     setCurrentCardIndex(nextIndex);

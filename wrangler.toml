@@ -1,0 +1,14 @@
+name = "stories"
+pages_build_output_dir = "."
+compatibility_date = "2025-12-17"
+
+# D1 Database binding
+[[d1_databases]]
+database_id = "9cf31d0e-a796-4aad-a5fe-2b29b763a366"
+binding = "DB"
+database_name = "stories-db"
+
+# R2 Bucket binding
+[[r2_buckets]]
+bucket_name = "stories-images"
+binding = "IMAGES"

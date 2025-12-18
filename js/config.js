@@ -37,6 +37,7 @@ export const CONFIG = {
 
     // API settings
     OPENAI_API_URL: 'https://api.openai.com/v1/images/generations',
+    OPENAI_API_EDIT_URL: 'https://api.openai.com/v1/images/edits',
     IMAGE_MODEL: 'gpt-image-1.5',
     IMAGE_SIZE: '1024x1024',
     IMAGE_QUALITY: 'medium',
@@ -53,4 +54,4 @@ export const SAMPLE_STORIES = [
     { label: 'Underwater city', prompt: 'Discovering a hidden city beneath the ocean' }
 ];
 
-export const SCENE_COUNT = 4;
+export const SCENE_COUNT = 5;

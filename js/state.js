@@ -11,7 +11,8 @@ export const state = {
     captions: Array(SCENE_COUNT).fill(null),
     cards: [],
     currentCardIndex: 0,
-    error: null
+    error: null,
+    referenceImages: []  // Array of base64 data URLs (up to 2 reference photos)
 };
 
 // State mutation functions
@@ -70,4 +71,18 @@ export function clearCards() {
     state.images = Array(SCENE_COUNT).fill(null);
     state.captions = Array(SCENE_COUNT).fill(null);
     state.currentCardIndex = 0;
+}
+
+export function addReferenceImage(imageData) {
+    if (state.referenceImages.length < 2) {
+        state.referenceImages.push(imageData);
+    }
+}
+
+export function removeReferenceImage(index) {
+    state.referenceImages.splice(index, 1);
+}
+
+export function clearReferenceImages() {
+    state.referenceImages = [];
 }
