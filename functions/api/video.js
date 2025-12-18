@@ -74,14 +74,22 @@ export async function onRequestPost(context) {
                     promptImage: imageUrl,
                     promptText: promptText || '',
                     duration: duration || 5,
-                    ratio: '1024:1024'
+                    ratio: '960:960'
                 })
             });
 
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
+                const errorText = await response.text();
+                console.error('Runway API error response:', errorText);
+                let errorData;
+                try {
+                    errorData = JSON.parse(errorText);
+                } catch {
+                    errorData = { error: errorText };
+                }
                 return new Response(JSON.stringify({
-                    error: errorData.error || `Runway API error: ${response.status}`
+                    error: errorData.error || errorData.message || `Runway API error: ${response.status}`,
+                    details: errorData
                 }), {
                     status: response.status,
                     headers: { 'Content-Type': 'application/json' }
