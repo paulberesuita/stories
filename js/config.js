@@ -35,15 +35,23 @@ export const CONFIG = {
     // Drag rotation multiplier
     DRAG_ROTATION_FACTOR: 0.15,
 
-    // API settings
+    // OpenAI API settings
     OPENAI_API_URL: 'https://api.openai.com/v1/images/generations',
     OPENAI_API_EDIT_URL: 'https://api.openai.com/v1/images/edits',
     IMAGE_MODEL: 'gpt-image-1.5',
     IMAGE_SIZE: '1024x1024',
     IMAGE_QUALITY: 'medium',
 
+    // Runway API settings
+    RUNWAY_API_URL: 'https://api.dev.runwayml.com/v1/image_to_video',
+    RUNWAY_TASK_URL: 'https://api.dev.runwayml.com/v1/tasks',
+    RUNWAY_MODEL: 'gen4_turbo',
+    RUNWAY_VIDEO_DURATION: 5,
+    RUNWAY_POLL_INTERVAL: 3000,
+
     // Storage keys
-    STORAGE_KEY_API: 'openai_key'
+    STORAGE_KEY_API: 'openai_key',
+    STORAGE_KEY_RUNWAY: 'runway_key'
 };
 
 export const SAMPLE_STORIES = [

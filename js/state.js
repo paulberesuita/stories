@@ -5,10 +5,13 @@ import { CONFIG, SCENE_COUNT } from './config.js';
 // Application state
 export const state = {
     apiKey: localStorage.getItem(CONFIG.STORAGE_KEY_API) || '',
+    runwayKey: localStorage.getItem(CONFIG.STORAGE_KEY_RUNWAY) || '',
     isGenerating: false,
+    isGeneratingVideo: false,
     currentScene: 0,
     images: Array(SCENE_COUNT).fill(null),
     captions: Array(SCENE_COUNT).fill(null),
+    videos: Array(SCENE_COUNT).fill(null),
     cards: [],
     currentCardIndex: 0,
     error: null,
@@ -25,13 +28,32 @@ export function setApiKey(key) {
     }
 }
 
+export function setRunwayKey(key) {
+    state.runwayKey = key;
+    if (key) {
+        localStorage.setItem(CONFIG.STORAGE_KEY_RUNWAY, key);
+    } else {
+        localStorage.removeItem(CONFIG.STORAGE_KEY_RUNWAY);
+    }
+}
+
 export function resetGenerationState() {
     state.isGenerating = true;
+    state.isGeneratingVideo = false;
     state.currentScene = 0;
     state.currentCardIndex = 0;
     state.images = Array(SCENE_COUNT).fill(null);
     state.captions = Array(SCENE_COUNT).fill(null);
+    state.videos = Array(SCENE_COUNT).fill(null);
     state.cards = [];
+}
+
+export function setGeneratingVideo(value) {
+    state.isGeneratingVideo = value;
+}
+
+export function setVideo(index, videoUrl) {
+    state.videos[index] = videoUrl;
 }
 
 export function setGenerating(value) {

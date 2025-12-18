@@ -141,12 +141,41 @@
                     </div>
                 </div>
 
+                <!-- Video view -->
+                <div id="video-view" class="w-full max-w-[500px] mx-auto hidden">
+                    <div class="bg-white rounded-2xl p-4 shadow-lg">
+                        <video id="story-video" class="w-full rounded-xl" controls playsinline>
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                </div>
+
+                <!-- Video generation progress -->
+                <div id="video-progress" class="w-full max-w-[400px] mx-auto hidden">
+                    <div class="bg-white rounded-2xl p-6 shadow-sm text-center">
+                        <div class="flex justify-center mb-4">
+                            <svg class="animate-spin h-8 w-8 text-[#171717]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </div>
+                        <p id="video-progress-text" class="text-sm text-[#525252]">Generating video...</p>
+                        <p id="video-progress-scene" class="text-xs text-[#a3a3a3] mt-1">Scene 1 of 5</p>
+                    </div>
+                </div>
+
                 <!-- Hidden caption elements (kept for JS compatibility) -->
                 <div id="caption-area" class="hidden">
                     <div id="scene-indicator"></div>
                     <p id="scene-caption"></p>
                 </div>
-                <div class="flex gap-3 mt-8 justify-center">
+                <div class="flex flex-wrap gap-3 mt-8 justify-center">
+                    <button id="make-video-btn" class="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-full text-sm font-medium cursor-pointer transition-all hidden flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                        <span>Make Video</span>
+                    </button>
                     <button id="save-story-btn" class="px-6 py-3 bg-white hover:bg-[#f5f5f5] text-[#171717] border border-[#e5e5e5] rounded-full text-sm font-medium cursor-pointer transition-colors hidden flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
@@ -180,7 +209,7 @@
                 <header class="text-center mb-6">
                     <h1 class="text-2xl md:text-3xl font-semibold text-[#171717] leading-tight">Settings</h1>
                 </header>
-                <div class="bg-white rounded-2xl p-6 shadow-sm">
+                <div class="bg-white rounded-2xl p-6 shadow-sm flex flex-col gap-6">
                     <div class="flex flex-col gap-2">
                         <label for="api-key-settings" class="text-sm font-medium text-[#171717]">OpenAI API Key</label>
                         <input
@@ -190,8 +219,20 @@
                             autocomplete="off"
                             class="w-full px-3.5 py-3 border border-[#e5e5e5] rounded-xl text-sm font-sans bg-white text-[#171717] focus:outline-none focus:ring-2 focus:ring-[#171717] focus:border-[#171717] transition-colors"
                         >
-                        <p class="text-xs text-[#737373] mt-1">Your API key is stored locally and never sent to our servers.</p>
+                        <p class="text-xs text-[#737373] mt-1">Used for generating story images.</p>
                     </div>
+                    <div class="flex flex-col gap-2">
+                        <label for="runway-key-settings" class="text-sm font-medium text-[#171717]">Runway API Key</label>
+                        <input
+                            type="password"
+                            id="runway-key-settings"
+                            placeholder="key_..."
+                            autocomplete="off"
+                            class="w-full px-3.5 py-3 border border-[#e5e5e5] rounded-xl text-sm font-sans bg-white text-[#171717] focus:outline-none focus:ring-2 focus:ring-[#171717] focus:border-[#171717] transition-colors"
+                        >
+                        <p class="text-xs text-[#737373] mt-1">Used for generating videos from your story. Get one at <a href="https://runwayml.com/api" target="_blank" class="text-[#171717] underline">runwayml.com/api</a></p>
+                    </div>
+                    <p class="text-xs text-[#737373] border-t border-[#e5e5e5] pt-4">Your API keys are stored locally and never sent to our servers.</p>
                 </div>
             </section>
         </main>

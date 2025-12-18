@@ -6,11 +6,14 @@ import { CONFIG, SAMPLE_STORIES, SCENE_COUNT, TEST_MODE, TEST_IMAGES, TEST_CAPTI
 import {
     state,
     setApiKey,
+    setRunwayKey,
     resetGenerationState,
     setGenerating,
+    setGeneratingVideo,
     setCurrentScene,
     setImage,
     setCaption,
+    setVideo,
     setCurrentCardIndex,
     setError,
     clearError as clearStateError,
@@ -20,6 +23,7 @@ import {
     clearReferenceImages
 } from './state.js';
 import { generateScenePrompts, generateSceneCaptions, generateImage, combineImages } from './api.js';
+import { generateAllSceneVideos, concatenateVideos } from './video.js';
 import { animateSectionTransition, setupButtonAnimations, animateEntrance } from './animations.js';
 import {
     setCardStackElement,
@@ -83,6 +87,15 @@ let cardView;
 let comicView;
 let comicStrip;
 
+// Video elements
+let makeVideoBtn;
+let videoView;
+let storyVideo;
+let videoProgress;
+let videoProgressText;
+let videoProgressScene;
+let runwayKeySettings;
+
 // Track current story prompt for saving
 let currentStoryPrompt = '';
 
@@ -138,6 +151,15 @@ function initDomReferences() {
     comicView = document.getElementById('comic-view');
     comicStrip = document.getElementById('comic-strip');
 
+    // Video elements
+    makeVideoBtn = document.getElementById('make-video-btn');
+    videoView = document.getElementById('video-view');
+    storyVideo = document.getElementById('story-video');
+    videoProgress = document.getElementById('video-progress');
+    videoProgressText = document.getElementById('video-progress-text');
+    videoProgressScene = document.getElementById('video-progress-scene');
+    runwayKeySettings = document.getElementById('runway-key-settings');
+
     // Set card stack element for cards module
     setCardStackElement(cardStack);
 
@@ -152,16 +174,23 @@ function initDomReferences() {
 function init() {
     initDomReferences();
 
-    // Load API key from localStorage
+    // Load API keys from localStorage
     if (state.apiKey && apiKeySettings) {
         apiKeySettings.value = state.apiKey;
+    }
+    if (state.runwayKey && runwayKeySettings) {
+        runwayKeySettings.value = state.runwayKey;
     }
 
     // Event listeners
     if (apiKeySettings) {
         apiKeySettings.addEventListener('input', handleApiKeyChange);
     }
+    if (runwayKeySettings) {
+        runwayKeySettings.addEventListener('input', handleRunwayKeyChange);
+    }
     generateBtn.addEventListener('click', handleGenerate);
+    makeVideoBtn.addEventListener('click', handleMakeVideo);
     createNewBtn.addEventListener('click', handleCreateNew);
     saveStoryBtn.addEventListener('click', handleSaveStory);
     storyPromptInput.addEventListener('keydown', (e) => {
@@ -427,7 +456,8 @@ async function loadStoryIntoViewer(storyId) {
         viewToggle.classList.remove('hidden');
         switchView('cards');
 
-        // Show only Create New button (not save, since it's already saved)
+        // Show Make Video and Create New buttons (not save, since it's already saved)
+        animateEntrance(makeVideoBtn);
         animateEntrance(createNewBtn);
         saveStoryBtn.classList.add('hidden');
 
@@ -455,6 +485,12 @@ function setupSampleStories() {
 function handleApiKeyChange(e) {
     const key = e.target.value.trim();
     setApiKey(key);
+}
+
+// Handle Runway API key input change
+function handleRunwayKeyChange(e) {
+    const key = e.target.value.trim();
+    setRunwayKey(key);
 }
 
 // Handle upload button click - trigger the appropriate file input
@@ -624,6 +660,7 @@ async function handleGenerate() {
 
         // Show buttons and nav
         topNav.classList.remove('hidden');
+        animateEntrance(makeVideoBtn);
         animateEntrance(createNewBtn);
         animateEntrance(saveStoryBtn);
         setGenerating(false);
@@ -671,6 +708,7 @@ async function handleGenerate() {
 
         // All scenes complete - show buttons and nav with animation
         topNav.classList.remove('hidden');
+        animateEntrance(makeVideoBtn);
         animateEntrance(createNewBtn);
         animateEntrance(saveStoryBtn);
     } catch (error) {
@@ -707,6 +745,12 @@ function handleCreateNew() {
     clearCards();
     viewToggle.classList.add('hidden');
     comicStrip.innerHTML = '';
+
+    // Hide video elements
+    videoView.classList.add('hidden');
+    videoProgress.classList.add('hidden');
+    makeVideoBtn.classList.add('hidden');
+    storyVideo.src = '';
 
     // Focus on prompt input
     storyPromptInput.focus();
@@ -772,6 +816,86 @@ async function handleSaveStory() {
         showError(error.message || 'Failed to save story. Please try again.');
         saveStoryBtn.querySelector('span').textContent = originalText;
         saveStoryBtn.disabled = false;
+    }
+}
+
+// Handle "Make Video" button click
+async function handleMakeVideo() {
+    // Check for Runway API key
+    if (!state.runwayKey) {
+        showError('Please add your Runway API key in Settings to generate videos.');
+        return;
+    }
+
+    // Check that all images exist
+    if (state.images.some(img => !img)) {
+        showError('Story images are not complete. Please wait for all scenes to generate.');
+        return;
+    }
+
+    // Hide other views, show progress
+    cardView.classList.add('hidden');
+    comicView.classList.add('hidden');
+    videoView.classList.add('hidden');
+    viewToggle.classList.add('hidden');
+    videoProgress.classList.remove('hidden');
+    makeVideoBtn.classList.add('hidden');
+    saveStoryBtn.classList.add('hidden');
+    createNewBtn.classList.add('hidden');
+
+    setGeneratingVideo(true);
+
+    try {
+        // Generate videos for all scenes
+        const videos = await generateAllSceneVideos(
+            state.images,
+            state.captions,
+            (sceneIndex, status, progress, error) => {
+                // Update progress UI
+                if (status === 'starting' || status === 'PENDING' || status === 'RUNNING') {
+                    videoProgressText.textContent = `Generating video for scene ${sceneIndex + 1}...`;
+                    videoProgressScene.textContent = `Scene ${sceneIndex + 1} of ${SCENE_COUNT}`;
+                } else if (status === 'completed') {
+                    videoProgressText.textContent = `Scene ${sceneIndex + 1} complete!`;
+                }
+
+                // Store video URL
+                if (status === 'completed' && videos && videos[sceneIndex]) {
+                    setVideo(sceneIndex, videos[sceneIndex]);
+                }
+            }
+        );
+
+        // Store all videos in state
+        videos.forEach((url, index) => {
+            if (url) setVideo(index, url);
+        });
+
+        // For MVP, use the first video (or implement concatenation later)
+        const finalVideoUrl = await concatenateVideos(videos);
+
+        // Hide progress, show video
+        videoProgress.classList.add('hidden');
+        videoView.classList.remove('hidden');
+        storyVideo.src = finalVideoUrl;
+        storyVideo.load();
+
+        // Show buttons
+        animateEntrance(createNewBtn);
+
+    } catch (error) {
+        showError(error.message || 'Failed to generate video. Please try again.');
+        // Restore views
+        videoProgress.classList.add('hidden');
+        cardView.classList.remove('hidden');
+        viewToggle.classList.remove('hidden');
+        animateEntrance(makeVideoBtn);
+        animateEntrance(createNewBtn);
+        if (!isViewingSavedStory) {
+            animateEntrance(saveStoryBtn);
+        }
+    } finally {
+        setGeneratingVideo(false);
     }
 }
 
