@@ -3,6 +3,30 @@
 const RUNWAY_API_URL = 'https://api.dev.runwayml.com/v1/image_to_video';
 const RUNWAY_TASK_URL = 'https://api.dev.runwayml.com/v1/tasks';
 
+// Helper to convert ArrayBuffer to base64
+function arrayBufferToBase64(buffer) {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+}
+
+// Fetch image and convert to base64 data URL
+async function fetchImageAsBase64(imageUrl) {
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.status}`);
+    }
+
+    const contentType = response.headers.get('content-type') || 'image/png';
+    const arrayBuffer = await response.arrayBuffer();
+    const base64 = arrayBufferToBase64(arrayBuffer);
+
+    return `data:${contentType};base64,${base64}`;
+}
+
 export async function onRequestPost(context) {
     const { request } = context;
 
@@ -19,7 +43,24 @@ export async function onRequestPost(context) {
 
         if (action === 'start') {
             // Start a new video generation task
-            const { imageUrl, promptText, model, duration } = params;
+            let { imageUrl, promptText, model, duration } = params;
+
+            // If the image URL is not already a data URL, fetch and convert it
+            if (imageUrl && !imageUrl.startsWith('data:')) {
+                console.log('Fetching image from URL:', imageUrl);
+                try {
+                    imageUrl = await fetchImageAsBase64(imageUrl);
+                    console.log('Converted image to base64, length:', imageUrl.length);
+                } catch (fetchError) {
+                    console.error('Failed to fetch image:', fetchError);
+                    return new Response(JSON.stringify({
+                        error: `Failed to fetch image: ${fetchError.message}`
+                    }), {
+                        status: 400,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+            }
 
             const response = await fetch(RUNWAY_API_URL, {
                 method: 'POST',
