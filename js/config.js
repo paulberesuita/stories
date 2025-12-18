@@ -1,7 +1,7 @@
 // Configuration and constants
 
 // Test mode - set to true to use hardcoded images for UI/UX iteration
-export const TEST_MODE = true;
+export const TEST_MODE = false;
 
 // Test images (Unsplash landscape photos)
 export const TEST_IMAGES = [

@@ -51,7 +51,7 @@ function getStackPositionValues(index, currentCardIndex) {
 // Show loading card for a scene
 export function showLoadingCard(index) {
     const card = document.createElement('div');
-    card.className = 'story-card w-[85vw] max-w-[340px]';
+    card.className = 'story-card w-[80vw] max-w-[300px] sm:max-w-[340px]';
     card.dataset.index = index;
     card.innerHTML = `
         <div class="card-content w-full bg-white rounded-2xl p-3 shadow-[0_8px_30px_rgba(0,0,0,0.12)]">
@@ -138,7 +138,7 @@ export function updateSceneCard(index, imageData, caption) {
     card.appendChild(cardContent);
 
     // Ensure card maintains its classes
-    card.className = 'story-card w-[85vw] max-w-[340px]';
+    card.className = 'story-card w-[80vw] max-w-[300px] sm:max-w-[340px]';
     card.dataset.index = index;
 
     // Update stack position
